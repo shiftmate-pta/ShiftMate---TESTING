@@ -60,14 +60,16 @@ window.PayCalc = (() => {
 
   const designatedLineForRoster=line=>(window.DESIGNATED_LINE_BY_ROSTER||{})[line]||line;
   const lineAllowanceDistance=(homeRoster,workedRoster,stationCode)=>{
-    if(!stationCode)return null;
     const home=designatedLineForRoster(homeRoster),worked=designatedLineForRoster(workedRoster);
     if(!home||!worked||home===worked)return 0;
     let matrixKey=home;
     if(home==='NORTHERN_MANDURAH')matrixKey=worked==='SOUTHERN_MANDURAH'?'NORTHERN_MANDURAH_AUBINGROVE':'NORTHERN_MANDURAH_BULLCREEK';
     const table=(window.LINE_ALLOWANCE_KM||{})[matrixKey];
-    return table&&Object.prototype.hasOwnProperty.call(table,stationCode)?Number(table[stationCode]):null;
+    if(stationCode&&table&&Object.prototype.hasOwnProperty.call(table,stationCode))return Number(table[stationCode]);
+    const routeTable=(window.LINE_ALLOWANCE_ROUTE_KM||{})[matrixKey];
+    return routeTable&&Object.prototype.hasOwnProperty.call(routeTable,worked)?Number(routeTable[worked]):null;
   };
+  const vehicleRateForDate=date=>iso(date)>='2026-07-01'?.98:.895;
 
   // Known payroll rates for the current Armadale operational roster.
   // These are date-effective because allowance/loading changes do not always
@@ -84,9 +86,9 @@ window.PayCalc = (() => {
   const calculate=({days,startDate,settings})=>{
     const start=new Date(startDate+'T00:00:00');
     const holidays=holidayMapForRange(start,settings.customPublicHolidays);
-    let gross=0,hours=0;const dayTotals=[];
-    const breakdown={workedPay:0,annualLeavePay:0,sickLeavePay:0,lslPay:0,lwopPay:0,extrasPay:0,additionalHoursPay:0,publicHolidayPay:0};
-    const allowanceDetails=[],publicHolidayDetails=[],phBuckets=new Map();
+    let gross=0,hours=0,reimbursements=0;const dayTotals=[];
+    const breakdown={workedPay:0,annualLeavePay:0,sickLeavePay:0,lslPay:0,lwopPay:0,extrasPay:0,additionalHoursPay:0,publicHolidayPay:0,reimbursements:0};
+    const allowanceDetails=[],reimbursementDetails=[],publicHolidayDetails=[],phBuckets=new Map();
     const rows=[];
 
     days.forEach((row,i)=>{
@@ -253,14 +255,17 @@ window.PayCalc = (() => {
           const workedDesignated=designatedLineForRoster(workedRoster);
           if(homeDesignated&&workedDesignated&&homeDesignated!==workedDesignated){
             const distance=lineAllowanceDistance(settings.homeLine,workedRoster,data.stationCode);
+            const travelPay=settings.baseRate;
+            extras+=travelPay;
+            dayGross+=travelPay;
+            breakdown.extrasPay+=travelPay;
+            allowanceDetails.push({type:'Other line allowance',date:iso(date),dayIndex:i,code:row.code,hours:1,amount:travelPay,travelPay,distanceMissing:distance==null,workedRosterLine:workedRoster});
             if(distance!=null){
-              const travelPay=settings.baseRate;
-              const mileage=distance*.895;
-              const amount=travelPay+mileage;
-              extras+=amount;
-              dayGross+=amount;
-              breakdown.extrasPay+=amount;
-              allowanceDetails.push({type:'Other line allowance',date:iso(date),dayIndex:i,code:row.code,hours:1,amount,travelPay,mileage,distance,distanceMissing:false,workedRosterLine:workedRoster});
+              const rate=vehicleRateForDate(date);
+              const mileage=distance*rate;
+              reimbursements+=mileage;
+              breakdown.reimbursements+=mileage;
+              reimbursementDetails.push({type:'Kilometre reimbursement',date:iso(date),dayIndex:i,code:row.code,amount:mileage,distance,rate,workedRosterLine:workedRoster});
             }
           }
         }
@@ -290,8 +295,8 @@ window.PayCalc = (() => {
     });
 
     rows.forEach((info,i)=>{const dayGross=info.prePhGross||0;gross+=dayGross;hours+=info.dayHours||0;dayTotals.push({gross:dayGross,hours:info.dayHours||0,start:info.st||'',finish:info.fn||'',additionalPay:info.additionalPay||0,holidayName:holidays.get(iso(info.date))||''})});
-    const taxable=Math.max(0,gross-settings.lease-settings.gesb),tax=taxable?Math.max(0,Math.round(annualTax(taxable*26)/26+settings.extraTax)):0,net=taxable-tax-settings.postTax;
-    return {gross,taxable,tax,hours,net,netHourly:hours?net/hours:0,dayTotals,breakdown,allowanceDetails,publicHolidayDetails};
+    const taxable=Math.max(0,gross-settings.lease-settings.gesb),tax=taxable?Math.max(0,Math.round(annualTax(taxable*26)/26+settings.extraTax)):0,net=taxable-tax-settings.postTax+reimbursements;
+    return {gross,taxable,tax,hours,net,reimbursements,netHourly:hours?net/hours:0,dayTotals,breakdown,allowanceDetails,reimbursementDetails,publicHolidayDetails};
   };
   return {calculate,dayGroup,waPublicHolidays};
 })();
