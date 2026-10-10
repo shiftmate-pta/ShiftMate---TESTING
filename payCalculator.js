@@ -66,8 +66,12 @@ window.PayCalc = (() => {
     if(home==='NORTHERN_MANDURAH')matrixKey=worked==='SOUTHERN_MANDURAH'?'NORTHERN_MANDURAH_AUBINGROVE':'NORTHERN_MANDURAH_BULLCREEK';
     const table=(window.LINE_ALLOWANCE_KM||{})[matrixKey];
     if(stationCode&&table&&Object.prototype.hasOwnProperty.call(table,stationCode))return Number(table[stationCode]);
-    const routeTable=(window.LINE_ALLOWANCE_ROUTE_KM||{})[matrixKey];
-    return routeTable&&Object.prototype.hasOwnProperty.call(routeTable,worked)?Number(routeTable[worked]):null;
+    const validatedTable=(window.LINE_ALLOWANCE_VALIDATED_KM||{})[matrixKey];
+    if(stationCode&&validatedTable&&Object.prototype.hasOwnProperty.call(validatedTable,stationCode))return Number(validatedTable[stationCode]);
+    const provisionalTable=(window.LINE_ALLOWANCE_PROVISIONAL_KM||{})[matrixKey];
+    return stationCode&&provisionalTable&&Object.prototype.hasOwnProperty.call(provisionalTable,stationCode)
+      ? Number(provisionalTable[stationCode])
+      : null;
   };
   const vehicleRateForDate=date=>iso(date)>='2026-07-01'?.98:.895;
 
@@ -254,7 +258,8 @@ window.PayCalc = (() => {
           const homeDesignated=designatedLineForRoster(settings.homeLine);
           const workedDesignated=designatedLineForRoster(workedRoster);
           if(homeDesignated&&workedDesignated&&homeDesignated!==workedDesignated){
-            const distance=lineAllowanceDistance(settings.homeLine,workedRoster,data.stationCode);
+            const stationCode=data.stationCode||(window.SHIFT_STATION_CODE_BY_NAME||{})[data.name]||null;
+            const distance=lineAllowanceDistance(settings.homeLine,workedRoster,stationCode);
             const travelPay=settings.baseRate;
             extras+=travelPay;
             dayGross+=travelPay;
