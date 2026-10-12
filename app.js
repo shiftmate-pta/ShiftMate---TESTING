@@ -661,138 +661,41 @@
     const evidence=$('#leaveEvidence')?.value==='yes';
     const today=new Date();
 
-    const loadImage=src=>new Promise((resolve,reject)=>{
-      const img=new Image();
-      img.onload=()=>resolve(img);
-      img.onerror=reject;
-      img.src=src;
-    });
-    const dataUrlBytes=dataUrl=>{
-      const bin=atob(dataUrl.split(',')[1]),out=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
-      return out;
-    };
-    const concatBytes=parts=>{
-      const len=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(len);
-      let off=0;for(const p of parts){out.set(p,off);off+=p.length}return out;
-    };
-    const enc=s=>new TextEncoder().encode(s);
-
-    // Minimal multipage PDF writer using flattened JPEG pages.
-    const pdfFromJpegs=pages=>{
-      const W=595.276,H=841.89;
-      const objects=[];
-      objects[1]=enc('<< /Type /Catalog /Pages 2 0 R >>');
-      const pageIds=[],imageIds=[],contentIds=[];
-      let next=3;
-      pages.forEach(()=>{pageIds.push(next++);imageIds.push(next++);contentIds.push(next++)});
-      objects[2]=enc(`<< /Type /Pages /Count ${pages.length} /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] >>`);
-      pages.forEach((p,i)=>{
-        const pageId=pageIds[i],imageId=imageIds[i],contentId=contentIds[i];
-        objects[pageId]=enc(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im${i} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);
-        const imgHead=enc(`<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.bytes.length} >>\nstream\n`);
-        const imgTail=enc('\nendstream');
-        objects[imageId]=concatBytes([imgHead,p.bytes,imgTail]);
-        const stream=`q\n${W} 0 0 ${H} 0 0 cm\n/Im${i} Do\nQ\n`;
-        objects[contentId]=enc(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
-      });
-
-      const chunks=[enc('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n')],offsets=[0];
-      let offset=chunks[0].length;
-      for(let id=1;id<objects.length;id++){
-        offsets[id]=offset;
-        const head=enc(`${id} 0 obj\n`),tail=enc('\nendobj\n');
-        chunks.push(head,objects[id],tail);offset+=head.length+objects[id].length+tail.length;
-      }
-      const xrefOffset=offset;
-      let xref=`xref\n0 ${objects.length}\n0000000000 65535 f \n`;
-      for(let id=1;id<objects.length;id++)xref+=`${String(offsets[id]).padStart(10,'0')} 00000 n \n`;
-      xref+=`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-      chunks.push(enc(xref));
-      return new Blob(chunks,{type:'application/pdf'});
-    };
-
-    const leaveRowY=g=>{
-      if(g.leaveType==='annual')return 570;
-      if(g.leaveType==='lsl')return 648;
-      if(g.leaveType==='sick'){
-        if(g.reason==='care')return 826;
-        if(g.reason==='unanticipated')return 872;
-        return 786;
-      }
-      if(g.leaveType==='bereavement')return 934;
-      if(g.leaveType==='dil')return 978;
-      if(g.leaveType==='paid-parental')return 1020;
-      if(g.leaveType==='unpaid-parental')return 1063;
-      if(g.leaveType==='military')return 1106;
-      if(g.leaveType==='union')return 1148;
-      if(g.leaveType==='easter')return 1208;
-      return 1252;
-    };
-
+    const preview=FormPdf.reservePreview();
     try{
-      const template=await loadImage('./leave-form-template.png');
-      const pages=[];
+      const document=await FormPdf.create('leave');
+      const map=document.map;
       for(const g of groups){
-        const canvas=document.createElement('canvas');
-        canvas.width=1414;canvas.height=2000;
-        const ctx=canvas.getContext('2d');
-        ctx.drawImage(template,0,0,1414,2000);
-        ctx.fillStyle='#111';ctx.textBaseline='middle';
-        ctx.font='22px Arial';
-
+        const page=await document.addPage();
         const first=g.entries[0]?.date||adjustedStart;
         const last=g.entries[g.entries.length-1]?.date||adjustedEnd;
-        const y=leaveRowY(g);
-
-        const text=(x,y,val,font='22px Arial')=>{
-          if(val===undefined||val===null||val==='')return;
-          ctx.font=font;ctx.fillStyle='#111';ctx.fillText(String(val),x,y);
+        const rowKey=g.leaveType==='sick'?(g.reason==='care'?'care':g.reason==='unanticipated'?'unanticipated':'illness'):g.leaveType;
+        const [top,bottom]=map.rows[rowKey]||map.rows.other;
+        const cell=(column,label,multiline=false)=>{
+          const [x,width]=map.columns[column];
+          return {x,y:top+4,width,height:bottom-top-8,size:20,label,multiline};
         };
-        text(198,286,name);
-        text(1080,328,service);
-        text(263,376,home);
-        text(616,y,fmtFormDate(first),'20px Arial');
-        text(786,y,fmtFormDate(last),'20px Arial');
-        text(969,y,g.hours.toFixed(1),'20px Arial');
-        text(1084,y,comments,'20px Arial');
-        text(391,1727,name,'20px Arial');
-        text(391,1818,fmtFormDate(today),'20px Arial');
-
-        // Put a compact X exactly inside the official Yes/No checkbox squares.
-        const boxX=(x,y,on)=>{
-          if(!on)return;
-          ctx.save();
-          ctx.strokeStyle='#111';ctx.lineWidth=2.2;
-          ctx.beginPath();ctx.moveTo(x+2,y+2);ctx.lineTo(x+10,y+10);
-          ctx.moveTo(x+10,y+2);ctx.lineTo(x+2,y+10);ctx.stroke();
-          ctx.restore();
-        };
-        // Contactable: Yes / No
-        boxX(594,1366,contactable);
-        boxX(727,1366,!contactable);
-        // Evidence attached: Yes / No
-        boxX(594,1434,evidence);
-        boxX(727,1434,!evidence);
-
-        const jpeg=canvas.toDataURL('image/jpeg',0.96);
-        pages.push({width:canvas.width,height:canvas.height,bytes:dataUrlBytes(jpeg)});
+        await page.text({...map.identity.name,label:'Employee name'},name);
+        await page.text({...map.identity.service,label:'Service number'},service);
+        await page.text({...map.identity.home,label:'Home line'},home);
+        await page.text(cell('start','Start date'),fmtFormDate(first));
+        await page.text(cell('end','End date'),fmtFormDate(last));
+        await page.text(cell('hours','Leave hours'),g.hours.toFixed(1));
+        await page.text(cell('comments','Leave comments',true),comments);
+        await page.text({...map.employee.name,label:'Employee name'},name);
+        await page.text(map.employee.date,fmtFormDate(today));
+        page.check(map.boxes.contactYes,contactable);
+        page.check(map.boxes.contactNo,!contactable);
+        page.check(map.boxes.evidenceYes,evidence);
+        page.check(map.boxes.evidenceNo,!evidence);
       }
-
-      const pdf=pdfFromJpegs(pages);
-      const url=URL.createObjectURL(pdf);
-      const w=window.open(url,'_blank');
-      if(!w){
-        const a=document.createElement('a');
-        a.href=url;a.download=`ShiftMate-Leave-${localISO(adjustedStart)}.pdf`;
-        document.body.appendChild(a);a.click();a.remove();
-      }
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      preview.show(await document.save(),`ShiftMate-Leave-${localISO(adjustedStart)}.pdf`);
       $('#leaveFormSheet').hidden=true;pendingLeaveDocument=null;
       toast(groups.length>1?`${groups.length} separate leave forms generated`:'Leave form generated');
     }catch(error){
+      preview.close();
       console.error(error);
-      toast('Could not generate leave PDF');
+      toast(error.message||'Could not generate leave PDF');
     }
   }
 
@@ -2954,7 +2857,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     $$('#shiftSwapSheet [data-swap-mode]').forEach(b=>b.classList.toggle('active',b.dataset.swapMode==='single'));renderSwapCalendar(localISO(d));fillSwapSide('request',d);fillSwapSide('partner',d);syncSwapMode();sheet.hidden=false;
   };
   const closeShiftSwap=()=>{if($('#shiftSwapSheet'))$('#shiftSwapSheet').hidden=true};
-  const swapJpegPdf=pages=>{const enc=s=>new TextEncoder().encode(s),cat=(...a)=>{let n=a.reduce((x,b)=>x+b.length,0),o=new Uint8Array(n),p=0;for(const b of a){o.set(b,p);p+=b.length}return o};const objs=[null],offsets=[0];pages.forEach((pg,i)=>{const pageId=3+i*3,imgId=4+i*3,contentId=5+i*3;objs[pageId]=enc(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pg.width} ${pg.height}] /Resources << /XObject << /Im${i} ${imgId} 0 R >> >> /Contents ${contentId} 0 R >>`);objs[imgId]=cat(enc(`<< /Type /XObject /Subtype /Image /Width ${pg.width} /Height ${pg.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.bytes.length} >>\nstream\n`),pg.bytes,enc('\nendstream'));const stream=`q\n${pg.width} 0 0 ${pg.height} 0 0 cm\n/Im${i} Do\nQ\n`;objs[contentId]=enc(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`)});const kids=pages.map((_,i)=>`${3+i*3} 0 R`).join(' ');objs[1]=enc('<< /Type /Catalog /Pages 2 0 R >>');objs[2]=enc(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);const chunks=[enc('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n')];let off=chunks[0].length;for(let id=1;id<objs.length;id++){offsets[id]=off;const h=enc(`${id} 0 obj\n`),t=enc('\nendobj\n');chunks.push(h,objs[id],t);off+=h.length+objs[id].length+t.length}let x=`xref\n0 ${objs.length}\n0000000000 65535 f \n`;for(let id=1;id<objs.length;id++)x+=`${String(offsets[id]).padStart(10,'0')} 00000 n \n`;x+=`trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${off}\n%%EOF`;chunks.push(enc(x));return new Blob(chunks,{type:'application/pdf'});};
+
   const clearSwapValidation=()=>{$$('#shiftSwapSheet .swap-field-missing').forEach(el=>el.classList.remove('swap-field-missing'));};
   const markSwapMissing=el=>{if(el){el.classList.add('swap-field-missing');}};
   const validateShiftSwap=()=>{
@@ -3014,141 +2917,50 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     }
     if(!entries.length){toast('Add a swap date');return}
 
+    const contingent=Boolean($('#swapContingent')?.checked);
+    const neutralCost=Boolean($('#swapNeutralCost')?.checked);
+    const others=String($('#swapOthers')?.value||'').trim();
+    const todayText=swapFmtDate(new Date());
+    const preview=FormPdf.reservePreview();
     try{
-      const template=await new Promise((res,rej)=>{
-        const im=new Image();
-        im.onload=()=>res(im);
-        im.onerror=()=>rej(new Error('Template failed to load'));
-        im.src='./shift-change-form-template.png';
-      });
-
-      const pages=[];
-      entries.forEach(({request:a,partner:b})=>{
-        const c=document.createElement('canvas');
-        c.width=1241;c.height=1754;
-        const ctx=c.getContext('2d');
-        ctx.drawImage(template,0,0,c.width,c.height);
-
-        // Keep the official form completely intact. Text is drawn on a
-        // transparent overlay only; no white rectangles or clearing boxes.
-        const overlay=document.createElement('canvas');
-        overlay.width=c.width;overlay.height=c.height;
-        const octx=overlay.getContext('2d');
-        octx.textBaseline='middle';
-        octx.fillStyle='#111';
-        const drawValue=(x,y,v,size=25)=>{
-          if(v===undefined||v===null||v==='')return;
-          octx.font=`bold ${size}px Arial`;
-          octx.fillText(String(v),x,y);
+      const document=await FormPdf.create('swap');
+      const map=document.map;
+      const fmtTime=v=>String(v||'').replace(':','');
+      for(const {request:a,partner:b} of entries){
+        const page=await document.addPage();
+        map.placeholders.forEach(rect=>page.rectangle(rect));
+        await page.text({...map.identity.requestName,label:'Requesting employee name'},reqName);
+        await page.text({...map.identity.requestService,label:'Requesting service number'},reqService);
+        await page.text({...map.identity.partnerName,label:'Replacement employee name'},partnerName);
+        await page.text({...map.identity.partnerService,label:'Replacement service number'},partnerService);
+        const drawPosition=async(rows,column,entry)=>{
+          const [x,width]=map.columns[column];
+          const values={date:entry.date?swapFmtDate(entry.date):'',shift:entry.shift,start:fmtTime(entry.start),finish:fmtTime(entry.finish)};
+          for(const key of ['date','shift','start','finish']){
+            const [top,bottom]=rows[key];
+            await page.text({x,y:top,width,height:bottom-top,size:key==='date'?24:25,bold:true,label:'Shift '+key},values[key]);
+          }
         };
-        const fmtTime=v=>String(v||'').replace(':','');
-
-        // REQUESTING EMPLOYEE
-        // Left side = their rostered/original shift.
-        // Right side = the shift they are requesting to work.
-        drawValue(215,265,reqName,25);
-        drawValue(790,265,reqService,25);
-        drawValue(285,365,a.date?swapFmtDate(a.date):'',24);
-        drawValue(830,365,b.date?swapFmtDate(b.date):'',24);
-        drawValue(285,415,a.shift,25);
-        drawValue(830,415,b.shift,25);
-        drawValue(285,465,fmtTime(a.start),25);
-        drawValue(830,465,fmtTime(b.start),25);
-        drawValue(285,515,fmtTime(a.finish),25);
-        drawValue(830,515,fmtTime(b.finish),25);
-
-        // REPLACEMENT EMPLOYEE
-        // Left side = their rostered/original shift.
-        // Right side = the shift they are requesting to work.
-        // Align replacement employee identity with the existing form name/service lines.
-        drawValue(215,1178,partnerName,25);
-        drawValue(790,1178,partnerService,25);
-        drawValue(285,1275,b.date?swapFmtDate(b.date):'',24);
-        drawValue(830,1275,a.date?swapFmtDate(a.date):'',24);
-        drawValue(285,1320,b.shift,25);
-        drawValue(830,1320,a.shift,25);
-        drawValue(285,1370,fmtTime(b.start),25);
-        drawValue(830,1370,fmtTime(a.start),25);
-        drawValue(285,1420,fmtTime(b.finish),25);
-        drawValue(830,1420,fmtTime(a.finish),25);
-
-        // Checkbox marks: centre each tick inside the actual printed checkbox.
-        const drawCheck=(x,y,size=24)=>{
-          octx.font=`bold ${size}px Arial`;
-          octx.textAlign='center';
-          octx.textBaseline='middle';
-          octx.fillStyle='#111';
-          octx.fillText('✓',x,y);
-          octx.textAlign='left';
-        };
-        if($('#swapContingent')?.checked)drawCheck(614,572,24);
-        if($('#swapNeutralCost')?.checked)drawCheck(553,1019,24);
-
-        // The official template contains Word-style placeholder text in the
-        // two employee confirmation rows. Clear only those cells, leaving
-        // every surrounding form line and label untouched.
-        const clearCell=(x,y,w,h)=>{
-          octx.fillStyle='#fff';
-          octx.fillRect(x,y,w,h);
-          octx.fillStyle='#111';
-        };
-        const drawCentered=(x,y,w,v,size=21)=>{
-          if(v===undefined||v===null||v==='')return;
-          octx.font=`bold ${size}px Arial`;
-          octx.textAlign='center';
-          octx.fillText(String(v),x+w/2,y);
-          octx.textAlign='left';
-        };
-        const todayText=swapFmtDate(new Date());
-
-        // The contingent-swap field contains a Word placeholder. Clear only
-        // that placeholder area (not the label or surrounding form lines),
-        // then place the entered name on top.
-        clearCell(805,565,330,29);
-        if($('#swapContingent')?.checked){
-          const others=String($('#swapOthers')?.value||'').trim();
-          if(others)drawValue(810,579,others,20);
+        // Preserve reciprocal mapping: original shift on the left, requested shift on the right.
+        await drawPosition(map.requestRows,'original',a);
+        await drawPosition(map.requestRows,'requested',b);
+        await drawPosition(map.partnerRows,'original',b);
+        await drawPosition(map.partnerRows,'requested',a);
+        page.check(map.boxes.contingent,contingent);
+        page.check(map.boxes.neutralCost,neutralCost);
+        if(contingent)await page.text({...map.others,label:'Others involved'},others);
+        for(const [fields,employee,number] of [[map.requestConfirmation,reqName,reqService],[map.partnerConfirmation,partnerName,partnerService]]){
+          await page.text({...fields.name,label:'Employee confirmation name'},employee);
+          await page.text({...fields.service,label:'Employee confirmation service number'},number);
+          await page.text(fields.date,todayText);
         }
-
-        // Requesting employee confirmation row.
-        clearCell(124,1042,425,49);
-        clearCell(556,1042,199,49);
-        clearCell(759,1042,374,49);
-        drawCentered(124,1071,425,reqName,20);
-        drawCentered(556,1071,199,reqService,20);
-        drawCentered(759,1071,374,todayText,20);
-
-        // Replacement employee confirmation row.
-        clearCell(124,1441,425,43);
-        clearCell(556,1441,199,43);
-        clearCell(759,1441,374,43);
-        drawCentered(124,1469,425,partnerName,20);
-        drawCentered(556,1469,199,partnerService,20);
-        drawCentered(759,1469,374,todayText,20);
-
-        // Flatten only the transparent text overlay onto the official form.
-        ctx.drawImage(overlay,0,0);
-        const jpeg=c.toDataURL('image/jpeg',.96);
-        pages.push({
-          width:c.width,
-          height:c.height,
-          bytes:Uint8Array.from(atob(jpeg.split(',')[1]),x=>x.charCodeAt(0))
-        });
-      });
-
-      const blob=swapJpegPdf(pages),url=URL.createObjectURL(blob);
-      const w=window.open(url,'_blank');
-      if(!w){
-        const a=document.createElement('a');
-        a.href=url;
-        a.download=`ShiftMate-Shift-Swap-${localISO(entries[0].request.date||new Date())}.pdf`;
-        document.body.appendChild(a);a.click();a.remove();
       }
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
-      toast(pages.length>1?`${pages.length} shift swap forms generated`:'Shift swap form generated');
+      preview.show(await document.save(),`ShiftMate-Shift-Swap-${localISO(entries[0].request.date||new Date())}.pdf`);
+      toast(entries.length>1?`${entries.length} shift swap forms generated`:'Shift swap form generated');
     }catch(error){
+      preview.close();
       console.error(error);
-      toast('Could not generate shift swap form');
+      toast(error.message||'Could not generate shift swap form');
     }
   }
 
