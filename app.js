@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const defaults={rateSource:'agreement',employmentRole:'',toCommencementDate:'',fcoAppointmentDate:'',stoPromotionDate:'',previousRoleBeforeSto:'',classificationOverride:true,classification:'',manualBaseRate:0,baseRate:0,wdMult:1,satMult:1.5,sunMult:2,addHoursMult:1.84,weekendOtMult:2,publicHolidayWorkedMult:2.5,hdRate:4.87,maRate:4.87,nightRate:5.77,lease:0,gesb:0,postTax:0,annualLeaveLoadingRate:12.55,extraTax:0,employeeName:'',serviceNumber:'',customPublicHolidays:'',homeLine:'',rosterLineNumber:0,rosterLineAnchorDate:'',otTarget:1};
+  const defaults={employmentFraction:1,partTimeLeaveHours:0,loadingHistoryYear:'',loadingHistoryHours:'',loadingHistoryPaid:'',rateSource:'agreement',employmentRole:'',toCommencementDate:'',fcoAppointmentDate:'',stoPromotionDate:'',previousRoleBeforeSto:'',classificationOverride:true,classification:'',manualBaseRate:0,baseRate:0,wdMult:1,satMult:1.5,sunMult:2,addHoursMult:1.84,weekendOtMult:2,publicHolidayWorkedMult:2.5,hdRate:4.87,maRate:4.87,nightRate:5.77,lease:0,gesb:0,postTax:0,annualLeaveLoadingRate:12.55,extraTax:0,employeeName:'',serviceNumber:'',customPublicHolidays:'',homeLine:'',rosterLineNumber:0,rosterLineAnchorDate:'',otTarget:1};
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   const money=n=>new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(n)||0);
   const localISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -13,7 +13,7 @@
     return date.getFullYear()===y&&date.getMonth()===mo-1&&date.getDate()===d?date:null;
   };
   const parseDate=s=>new Date(s+'T00:00:00');
-  const emptyDay=()=>({code:'',type:'Rostered',hd:false,start:'',finish:'',earlyStartHours:0,additionalHours:0,leaveHours:'',annualLeaveHours:0,phBenefit:'lieu',offline:false,workedRosterLine:'',offlineReason:'directed',partner:'',personalLeaveReason:'illness',bookOffHours:0,bookOffLeaveType:'',bookOffLeaveReason:'illness',scheduledStart:'',scheduledFinish:'',entered:false});
+  const emptyDay=()=>({code:'',type:'Rostered',hd:false,start:'',finish:'',earlyStartHours:0,additionalHours:0,leaveHours:'',annualLeaveHours:0,phOrdinaryDay:'',phOrdinaryHours:'',phBenefit:'lieu',offline:false,workedRosterLine:'',offlineReason:'directed',partner:'',personalLeaveReason:'illness',bookOffHours:0,bookOffLeaveType:'',bookOffLeaveReason:'illness',scheduledStart:'',scheduledFinish:'',entered:false});
   const rangeLabel=start=>{
     const a=parseDate(start),b=new Date(a);b.setDate(a.getDate()+13);
     return `${a.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})} – ${b.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}`;
@@ -555,16 +555,14 @@
     }
     if(!leaveEntries.length)leaveEntries.push(entry);
     const first=leaveEntries[0],last=leaveEntries[leaveEntries.length-1];
-    const hours=leaveEntries.reduce((sum,e)=>{const d=SHIFT_DATA[e.row.code];const h=e.row.leaveHours===''||e.row.leaveHours==null?(d?.defaultHours||10):Number(e.row.leaveHours);return sum+(Number(h)||0)},0);
+    const hours=leaveEntries.reduce((sum,e)=>sum+leaveHoursForEntry(e),0);
     const reason=entry.row.personalLeaveReason||'illness';
     return {leaveType,leaveEntries,start:first.date,end:last.date,hours,reason};
   }
   const leaveLabel=type=>type==='annual'?'Annual Leave':type==='sick'?'Personal Leave':type==='lsl'?'Long Service Leave':type==='lwop'?'Leave Without Pay':'Other Leave';
   function leaveReasonForEntry(e){return e?.row?.personalLeaveReason||'illness'}
   function leaveHoursForEntry(e){
-    const d=SHIFT_DATA[e?.row?.code];
-    const h=e?.row?.leaveHours===''||e?.row?.leaveHours==null?(d?.defaultHours||10):Number(e.row.leaveHours);
-    return Number(h)||0;
+    return PayCalc.leaveHoursUsed(e.row,e.date,e.cycle?.settings||current.settings);
   }
   function leaveGroupsInRange(start,end){
     const entries=rosterTimeline(),groups=new Map();
@@ -1217,7 +1215,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
   let calendarCursor=new Date();
   calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth(),1);
 
-  const stringSettings=new Set(['rateSource','employmentRole','toCommencementDate','fcoAppointmentDate','stoPromotionDate','previousRoleBeforeSto','classification','employeeName','serviceNumber','customPublicHolidays','homeLine','rosterLineAnchorDate']);
+  const stringSettings=new Set(['loadingHistoryYear','loadingHistoryHours','loadingHistoryPaid','rateSource','employmentRole','toCommencementDate','fcoAppointmentDate','stoPromotionDate','previousRoleBeforeSto','classification','employeeName','serviceNumber','customPublicHolidays','homeLine','rosterLineAnchorDate']);
   const boolSettings=new Set(['classificationOverride']);
   const normaliseSettings=raw=>Object.fromEntries(Object.keys(defaults).map(k=>{
     if(stringSettings.has(k))return [k,String(raw?.[k]??defaults[k])];
@@ -1583,6 +1581,9 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
           <label class="personal-leave-reason-field">Personal leave reason<select class="personal-leave-reason"><option value="illness" ${(row.personalLeaveReason||'illness')==='illness'?'selected':''}>Illness or injury</option><option value="care" ${row.personalLeaveReason==='care'?'selected':''}>Providing care/support to family</option><option value="unanticipated" ${row.personalLeaveReason==='unanticipated'?'selected':''}>Unanticipated matter requiring immediate attention</option></select></label>
           <label class="leave-hours-field">Paid leave hours<input class="leave-hours" type="number" min="0" step="0.001" value="${row.leaveHours??''}" placeholder="Use shift hours"><small class="field-note">Optional override for partial-day leave.</small></label>
           <label class="annual-leave-portion-field">Annual leave portion (hrs)<input class="annual-leave-hours" type="number" min="0" step="0.001" value="${Number(row.annualLeaveHours)||0}"><small class="field-note">For a mixed sick/personal + annual leave day.</small></label>
+          <label>Annual leave block commencement<input class="leave-commencement-date" type="date" value="${row.leaveCommencementDate||''}"><small>Optional for a block spanning New Year: selects the commencement-year loading cap.</small></label>
+          <label>Holiday ordinary roster<select class="ph-ordinary-day"><option value="">Use entered paid-leave shift hours</option><option value="yes" ${row.phOrdinaryDay==='yes'?'selected':''}>Normally rostered to work</option><option value="no" ${row.phOrdinaryDay==='no'?'selected':''}>Genuine non-rostered day</option></select></label>
+          <label>Holiday ordinary hours<input class="ph-ordinary-hours" type="number" min="0" step="0.001" value="${row.phOrdinaryHours??''}" placeholder="Use leave shift hours"><small>For a replaced rostered shift only. Genuine non-rostered days retain the applicable 8-hour entitlement.</small></label>
           <label>Public holiday worked benefit<select class="ph-benefit"><option value="lieu" ${(row.phBenefit||'lieu')==='lieu'?'selected':''}>Leave in lieu</option><option value="cash" ${row.phBenefit==='cash'?'selected':''}>Cash payment</option></select><small class="field-note">Defaults to leave in lieu; change only if cash payment applies.</small></label>
         </div>
       </div>`;
@@ -1772,8 +1773,8 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
         syncCurrentFromUI();
         recalculate();
       };
-      card.querySelectorAll('.shift-type,.higher-duties,.ph-benefit,.offline-reason,.personal-leave-reason').forEach(el=>el.onchange=()=>{card.dataset.entered='true';updateRosterCardState(card);syncCurrentFromUI();recalculate()});
-      card.querySelectorAll('.leave-hours,.annual-leave-hours,.shift-partner').forEach(el=>el.oninput=()=>{card.dataset.entered='true';updateRosterCardState(card);syncCurrentFromUI();recalculate()});
+      card.querySelectorAll('.shift-type,.higher-duties,.ph-benefit,.ph-ordinary-day,.offline-reason,.personal-leave-reason').forEach(el=>el.onchange=()=>{card.dataset.entered='true';updateRosterCardState(card);syncCurrentFromUI();recalculate()});
+      card.querySelectorAll('.leave-hours,.annual-leave-hours,.leave-commencement-date,.ph-ordinary-hours,.shift-partner').forEach(el=>el.oninput=()=>{card.dataset.entered='true';updateRosterCardState(card);syncCurrentFromUI();recalculate()});
       const manualTime=()=>{
         const code=effectiveShiftCode(card);
         const data=SHIFT_DATA[code];
@@ -1823,6 +1824,9 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       additionalHours:0,
       leaveHours:rosterControl(card,'.leave-hours')?.value===''?'':Number(rosterControl(card,'.leave-hours')?.value),
       annualLeaveHours:Number(rosterControl(card,'.annual-leave-hours')?.value)||0,
+      leaveCommencementDate:rosterControl(card,'.leave-commencement-date')?.value||'',
+      phOrdinaryDay:rosterControl(card,'.ph-ordinary-day')?.value||'',
+      phOrdinaryHours:rosterControl(card,'.ph-ordinary-hours')?.value??'',
       phBenefit:rosterControl(card,'.ph-benefit')?.value||'lieu',
       workedRosterLine:rosterControl(card,'.worked-line')?.value||current.settings.homeLine,
       offline:(rosterControl(card,'.worked-line')?.value||current.settings.homeLine)!==current.settings.homeLine,
@@ -1883,7 +1887,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
         row.dataset.dayIndex=String(item.dayIndex);
         row.innerHTML=`<span>
           <b>${date.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</b>
-          <small>${item.code||'Shift'} • ${Number(item.hours||0).toFixed(1)} hrs</small>
+          <small>${item.code||'Shift'} • ${Number(item.hours||0).toFixed(1)} hrs${item.type==='Other line allowance'?` × ${money(item.travelPay)}`:''}</small>
         </span><strong>${money(item.amount)}</strong>`;
         if(cycleStart===current.startDate)row.onclick=()=>openRosterDay(item.dayIndex);else row.classList.add('read-only-audit');
         section.appendChild(row);
@@ -1900,26 +1904,32 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
 
   function renderReimbursementBreakdown(details=[],cycleStart=current.startDate){
     const list=$('#reimbursementBreakdownList');if(!list)return;list.innerHTML='';
-    if(!details.length){list.innerHTML='<div class="allowance-empty">No non-taxable reimbursements in this pay cycle.</div>';return}
+    if(!details.length){list.innerHTML='<div class="allowance-empty">No mileage payments in this pay cycle.</div>';return}
     details.forEach(item=>{
       const date=parseDate(item.date),row=document.createElement('button');
       row.type='button';row.className='allowance-audit-row';row.dataset.dayIndex=String(item.dayIndex);
-      row.innerHTML=`<span><b>${date.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</b><small>${item.code||'Shift'} • ${Number(item.distance||0).toFixed(2)} km @ ${money(item.rate)}/km</small></span><strong>${money(item.amount)}</strong>`;
+      row.innerHTML=`<span><b>${date.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</b><small>${item.code||'Shift'} • ${Number(item.distance||0).toFixed(2)} km @ ${money(item.rate)}/km • ${esc(item.distanceMeta?.status||'Distance source unverified')} • Withholding unverified</small></span><strong>${money(item.amount)}</strong>`;
       if(cycleStart===current.startDate)row.onclick=()=>openRosterDay(item.dayIndex);else row.classList.add('read-only-audit');
       list.appendChild(row);
     });
   }
 
+  function renderLeaveAudit(result){
+    const panel=$('#leaveCalculationAudit');if(!panel)return;
+    panel.innerHTML=(result.annualLeaveDetails||[]).map(item=>`<div>${esc(item.date)}: ${item.hours} hrs × ${money(item.baseRate)} base + ${item.hours} hrs × $${Number(item.loadingRate).toFixed(6)} loading = ${money(item.amount)}${item.capped?' (cap applied)':''}</div>`).join('')+`<div>Pre-tax packaging: ${money(result.deductions?.salaryPackaging)}; pre-tax super: ${money(result.deductions?.superPreTax)}; post-tax deductions: ${money(result.deductions?.postTax)}</div>`+(result.calculationWarnings||[]).map(message=>`<p>${esc(message)}</p>`).join('');
+  }
+
   function renderPublicHolidayBreakdown(details=[]){
     const list=$('#publicHolidayBreakdownList');if(!list)return;list.innerHTML='';
     if(!details.length){list.innerHTML='<div class="allowance-empty">No public holiday entitlement in this pay cycle.</div>';return}
-    details.forEach(item=>{const row=document.createElement('div');row.className='public-holiday-row';const d=parseDate(item.date);row.innerHTML=`<span><b>${item.name}</b><small>${d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})} • ${item.type}${item.leaveCredit?` • ${item.leaveCredit.toFixed(1)} hrs leave credited`:''}</small></span><strong>${money(item.amount)}</strong>`;list.appendChild(row)});
+    details.forEach(item=>{const row=document.createElement('div');row.className='public-holiday-row';const d=parseDate(item.date);row.innerHTML=`<span><b>${item.name}</b><small>${d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})} • ${item.type}${item.rate!=null?` • ${item.hours} hrs × ${money(item.rate)}`:''}${item.leaveCredit?` • ${item.leaveCredit.toFixed(1)} hrs leave credited`:''}</small></span><strong>${money(item.amount)}</strong>`;list.appendChild(row)});
   }
 
   function recalculate(){
     syncCurrentFromUI();
     resolveAgreementSettings();
     latestResult=PayCalc.calculate(current);
+    renderLeaveAudit(latestResult);
     latestResult.dayTotals.forEach((row,i)=>{
       const card=$$('.day-card')[i];
       if(!card) return;
@@ -2658,7 +2668,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     $('#payStatusLabel').textContent=statusLabel(status);$('#payRange').innerHTML=`${peLabel(cycle.startDate)}<small class="cycle-range-sub">${cycleDateRange(cycle.startDate)}</small>`;
     $('#payPayday').textContent=`Payday ${paydayFor(cycle.startDate).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}`;
     $('#workedPay').textContent=money(result.breakdown.workedPay);$('#publicHolidayPay').textContent=money(result.breakdown.publicHolidayPay);
-    renderPublicHolidayBreakdown(result.publicHolidayDetails);$('#annualLeavePay').textContent=money(result.breakdown.annualLeavePay);
+    renderLeaveAudit(result);renderPublicHolidayBreakdown(result.publicHolidayDetails);$('#annualLeavePay').textContent=money(result.breakdown.annualLeavePay);
     $('#sickLeavePay').textContent=money(result.breakdown.sickLeavePay);$('#lslPay').textContent=money(result.breakdown.lslPay);
     $('#lwopPay').textContent=money(result.breakdown.lwopPay);$('#extrasPay').textContent=money(result.breakdown.extrasPay);
     renderAllowanceBreakdown(result.allowanceDetails,cycle.startDate);$('#reimbursementsPay').textContent=money(result.reimbursements);renderReimbursementBreakdown(result.reimbursementDetails,cycle.startDate);$('#additionalHoursPay').textContent=money(result.breakdown.additionalHoursPay);
@@ -2759,7 +2769,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     saveCurrent();
     const payload={
       app:'PTA ShiftMate',
-      version:'2.7.7-offline-table',
+      version:'2.7.9-leave-loading',
       exportedAt:new Date().toISOString(),
       current:AppStorage.loadCurrent(),
       cycles:AppStorage.loadCycles()

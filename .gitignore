@@ -1,0 +1,5 @@
+# Local payroll evidence and generated review artifacts are never published.
+tmp/
+tmp-*.png
+handoff-pay-review/
+ShiftMate-payslip-review-handoff.zip
