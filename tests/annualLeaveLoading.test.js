@@ -100,4 +100,3 @@ const unknown=calc([annual()],'2026-09-17',{classification:'',employmentRole:''}
 assert.ok(unknown.calculationWarnings.some(x=>x.includes('classification')));
 assert.equal(unknown.annualLeaveDetails[0].loadingPay,0,'missing classification never guesses STO3');
 console.log('annual leave MOU, payment lines, holiday exclusions and cap tests passed');
-
