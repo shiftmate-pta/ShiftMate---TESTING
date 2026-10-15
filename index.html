@@ -8,9 +8,9 @@
 <meta content="ShiftMate TEST" name="apple-mobile-web-app-title"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <title>ShiftMate TEST</title>
-<link href="styles.css?v=2.7.9-leave-loading" rel="stylesheet"/>
-<link href="apple-touch-icon.png?v=2.7.9-leave-loading" rel="apple-touch-icon"/>
-<link href="manifest.json?v=2.7.9-leave-loading" rel="manifest"/>
+<link href="styles.css?v=2.7.10-full-time" rel="stylesheet"/>
+<link href="apple-touch-icon.png?v=2.7.10-full-time" rel="apple-touch-icon"/>
+<link href="manifest.json?v=2.7.10-full-time" rel="manifest"/>
 <meta content="#05090b" name="theme-color"/>
 </head>
 <body>
@@ -252,8 +252,6 @@
 <details class="settings-section" open="">
 <summary><span>Employment</span><small>Select your current PTA level</small></summary>
 <div class="form-grid settings-grid employment-level-grid">
-<label>Employment fraction<input id="employmentFraction" type="number" min="0.01" max="1" step="0.01"/><small>1 for full-time; contracted fortnight hours ÷ 80 for part-time.</small></label>
-<label>Part-time ordinary hours per leave shift<input id="partTimeLeaveHours" type="number" min="0" step="0.001"/><small>Regular hours, or qualifying-service average under clause 6.5.6. Override individual leave hours when needed.</small></label>
 <label class="settings-wide">Current level<select id="classification">
 <option value="">Select level…</option><option value="TRAINEE">Trainee</option><option value="TO1">TO1</option><option value="TO2">TO2</option><option value="TO3">TO3</option><option value="TO4">TO4</option><option value="TO5">TO5</option><option value="FCO">First Class Officer</option><option value="STO1">STO1</option><option value="STO2">STO2</option><option value="STO3">STO3</option>
 </select></label>
@@ -296,10 +294,15 @@
 <label>Novated lease pre-tax<input id="lease" step="0.01" type="number"/></label>
 <label>Salary sacrifice super pre-tax<input id="gesb" step="0.01" type="number"/></label>
 <label>Other post-tax deductions<input id="postTax" step="0.01" type="number"/></label>
+<label>Extra tax withheld / fortnight<input id="extraTax" step="0.01" type="number"/></label>
+</div>
+</details>
+<details class="settings-section" id="advancedLeaveLoadingSettings">
+<summary><span>Advanced leave-loading settings</span><small>Optional cap history</small></summary>
+<div class="form-grid settings-grid">
 <label>Loading cap history year<input id="loadingHistoryYear" type="text" inputmode="numeric" placeholder="2026"/></label>
 <label>Annual leave hours before this cycle<input id="loadingHistoryHours" type="text" inputmode="decimal" placeholder="Unknown"/></label>
 <label>Loading already paid before this cycle<input id="loadingHistoryPaid" type="text" inputmode="decimal" placeholder="Unknown"/><small>Use complete payroll history for the selected year; exclude this cycle. Leave blank if unavailable.</small></label>
-<label>Extra tax withheld / fortnight<input id="extraTax" step="0.01" type="number"/></label>
 </div>
 </details>
 <details class="settings-section">
@@ -314,7 +317,7 @@
 </details>
 <details class="settings-section">
 <summary><span>About</span><small>ShiftMate app information</small></summary>
-<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.7.9 LEAVE LOADING</div>
+<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.7.10 FULL TIME</div>
 </details>
 <div class="action-grid settings-actions">
 <button class="primary" id="saveCurrent">Save settings</button>
@@ -422,10 +425,10 @@
 <button class="nav-button" data-go="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
 </nav>
 <script src="agreementData.js?v=8.3"></script>
-<script src="shiftData.js?v=2.7.9-leave-loading"></script>
-<script src="annualLeaveLoading.js?v=2.7.9-leave-loading"></script>
-<script src="payCalculator.js?v=2.7.9-leave-loading"></script>
+<script src="shiftData.js?v=2.7.10-full-time"></script>
+<script src="annualLeaveLoading.js?v=2.7.10-full-time"></script>
+<script src="payCalculator.js?v=2.7.10-full-time"></script>
 <script src="storage.js?v=8.3"></script>
-<script src="app.js?v=2.7.9-leave-loading"></script>
+<script src="app.js?v=2.7.10-full-time"></script>
 </body>
 </html>

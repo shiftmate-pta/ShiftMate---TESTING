@@ -65,24 +65,29 @@ const ph=calc([annual()],'2026-09-28');
 assert.equal(ph.annualLeaveDetails.length,0);
 assert.equal(PayCalc.leaveHoursUsed(annual(),new Date('2026-09-28T00:00:00'),settings),0);
 close(calc([off()],'2026-09-28').breakdown.publicHolidayPay,354.96);
-close(calc([annual()],'2026-09-28',{employmentFraction:.5}).hours,10,'explicit part-time roster hours preserved');
-assert.equal(calc([off()],'2026-09-28',{employmentFraction:.5}).hours,0,'no guessed part-time eligibility');
-close(calc([{...off(),phOrdinaryDay:'yes'}],'2026-09-28',{employmentFraction:.5}).hours,4);
+close(calc([annual()],'2026-09-28',{employmentFraction:.5}).hours,10,'entered holiday hours preserved');
+close(calc([off()],'2026-09-28',{employmentFraction:.5}).hours,8,'legacy fraction does not reduce holiday');
+close(calc([{...off(),phOrdinaryDay:'no'}],'2026-09-28',{employmentFraction:0}).hours,8);
 const lsl=calc([{code:'LSL',leaveHours:10}],'2026-09-28');
 assert.equal(lsl.breakdown.publicHolidayPay,0);assert.equal(lsl.leaveUsage.longService,10);
-// Qualifying-service average supplied explicitly for variable part-time hours.
-const pt=calc([{code:'A/L',leaveHours:''}],'2026-09-17',{employmentFraction:.5,partTimeLeaveHours:6});
-close(pt.leaveUsage.annual,6);close(pt.annualLeaveDetails[0].loadingPay,76.64);
-const missingPt=calc([{code:'A/L',leaveHours:''}],'2026-09-17',{employmentFraction:.5});
-assert.equal(missingPt.leaveUsage.annual,0);assert.ok(missingPt.calculationWarnings.some(x=>x.includes('qualifying-service')));
+// Old saved part-time settings must not affect full-time entitlements.
+const legacy={employmentFraction:.5,partTimeLeaveHours:6};
+close(calc([{code:'A/L',leaveHours:''}],'2026-09-17',legacy).leaveUsage.annual,10);
+close(calc([annual(6)],'2026-09-17',legacy).leaveUsage.annual,6,'individual entered hours preserved');
+close(PayCalc.leaveHoursUsed({code:'A/L',leaveHours:''},new Date('2026-09-17T00:00:00'),legacy),10);
+for(const employmentFraction of [0,.5,1,2]){
+ const migrated=calc(days,'2026-09-20',{employmentFraction,partTimeLeaveHours:6});
+ close(migrated.gross,4443.78);assert.equal(migrated.hours,80);assert.equal(migrated.leaveUsage.annual,70);
+}
 close(ALL.capFor(2026,200),2648.49);close(ALL.capFor(2026,320),4237.58);
-close(ALL.capFor(2026,100,.5),1324.25);close(ALL.capFor(2026,160,.5),2118.79);
+close(ALL.capFor(2026,100,.5),2648.49,'old fraction argument cannot prorate cap');
 const fco=calc([annual(200)],'2026-09-17',{classification:'FCO'});
 close(fco.annualLeaveDetails[0].loadingPay,2648.49);assert.equal(fco.annualLeaveDetails[0].capped,true);
 const fcoExtended=calc([annual(320)],'2026-09-17',{classification:'FCO'});
 close(fcoExtended.annualLeaveDetails[0].loadingPay,4237.58);
 const cappedPt=calc([annual(100)],'2026-09-17',{classification:'FCO',employmentFraction:.5});
 close(cappedPt.annualLeaveDetails[0].loadingPay,1324.25);
+close(cappedPt.annualLeaveDetails[0].cap,2648.49,'legacy fraction does not reduce full-time annual ceiling');
 const history=calc([annual(10)],'2026-09-17',{loadingHistoryYear:'2026',loadingHistoryHours:'190',loadingHistoryPaid:'2640'});
 close(history.annualLeaveDetails[0].loadingPay,8.49,'known previous loading limits remaining cap');
 assert.ok(!history.calculationWarnings.some(x=>x.includes('history is unavailable')));
@@ -92,7 +97,7 @@ const spanning=calc([{...annual(),leaveCommencementDate:'2026-12-20'}],'2027-01-
 assert.equal(spanning.annualLeaveDetails[0].year,2026,'commencement year selects cap for a spanning block');
 assert.ok(!spanning.calculationWarnings.some(x=>x.includes('cap for 2027')));
 const ptTimes=calc([{code:'A/L',leaveHours:'',start:'00:00',finish:'10:00'}],'2026-09-17',{employmentFraction:.5,partTimeLeaveHours:6});
-assert.equal(ptTimes.leaveUsage.annual,6,'qualifying average overrides generic leave time defaults');
+assert.equal(ptTimes.leaveUsage.annual,10,'legacy part-time average is ignored');
 context.window.SHIFT_DATA.Parental={leaveType:'paid-parental',defaultHours:10,times:{monthu:['00:00','10:00']}};
 assert.equal(calc([{code:'Parental',leaveHours:10}],'2026-09-28').breakdown.publicHolidayPay,0);
 assert.equal(calc([{code:'LWOP',leaveHours:10}],'2026-09-28').breakdown.publicHolidayPay,0);

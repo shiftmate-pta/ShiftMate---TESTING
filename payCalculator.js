@@ -96,11 +96,9 @@ window.PayCalc = (() => {
 
   // Explicit leave hours/time establish the replaced shift. OFF defaults remain 8h.
   const publicHolidayHours=(row,date,settings,paidLeaveHours)=>{
-    const fraction=Math.min(1,Math.max(0,Number(settings.employmentFraction??1)));
-    if(row.phOrdinaryDay==='no')return fraction<1?0:8;
+    if(row.phOrdinaryDay==='no')return 8;
     if(row.phOrdinaryHours!==''&&row.phOrdinaryHours!=null)return Math.max(0,Number(row.phOrdinaryHours)||0);
     if(paidLeaveHours!=null)return paidLeaveHours;
-    if(fraction<1)return row.phOrdinaryDay==='yes'?8*fraction:0;
     return 8;
   };
   const leaveHoursUsed=(row,date,settings={})=>{
@@ -110,7 +108,7 @@ window.PayCalc = (() => {
     if(holiday&&!['lsl','lwop','parental','paid-parental','unpaid-parental'].includes(data.leaveType))return 0;
     if(row.leaveHours!==''&&row.leaveHours!=null)return Math.max(0,Number(row.leaveHours)||0);
     if(row.start&&row.finish)return ((mins(row.finish)-mins(row.start)+1440)%1440)/60;
-    return Number(settings.employmentFraction??1)<1?Math.max(0,Number(settings.partTimeLeaveHours)||0):(data.defaultHours||10);
+    return data.defaultHours||10;
   };
 
   const calculate=({days,startDate,settings})=>{
@@ -139,7 +137,7 @@ window.PayCalc = (() => {
       let loadingPay=loading?round(leaveHours*rate):leaveHours*rate;
       if(loading&&!loading.error){
         const history=loadingHistory.get(loading.year);history.hours+=leaveHours;
-        const cumulativeCap=window.AnnualLeaveLoading.capFor(loading.year,history.hours,loading.fraction);
+        const cumulativeCap=window.AnnualLeaveLoading.capFor(loading.year,history.hours);
         if(cumulativeCap!=null)loadingPay=Math.min(loadingPay,Math.max(0,round(cumulativeCap-history.paid)));
         history.paid=round(history.paid+loadingPay);
       }
@@ -169,10 +167,6 @@ window.PayCalc = (() => {
       if(data&&data.leaveType){
         const defaultLeaveHours=duration/60;
         let leaveHours=row.leaveHours===''||row.leaveHours==null?defaultLeaveHours:Math.max(0,Number(row.leaveHours)||0);
-        if(Number(settings.employmentFraction??1)<1&&(row.leaveHours===''||row.leaveHours==null)&&((Number(settings.partTimeLeaveHours)||0)>0||!(row.start&&row.finish))){
-          leaveHours=Math.max(0,Number(settings.partTimeLeaveHours)||0);
-          if(!leaveHours)calculationWarnings.add('Enter regular or qualifying-service average ordinary leave hours for part-time leave (clause 6.5.6).');
-        }
         if(dayHoliday&&!['lsl','lwop','parental','paid-parental','unpaid-parental'].includes(data.leaveType)){
           const phHours=publicHolidayHours(row,date,settings,leaveHours+(data.leaveType==='sick'?Math.max(0,Number(row.annualLeaveHours)||0):0));
           const amount=round(phHours*settings.baseRate);dayGross+=amount;dayHours+=phHours;breakdown.publicHolidayPay+=amount;
