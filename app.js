@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const defaults={employmentFraction:1,partTimeLeaveHours:0,loadingHistoryYear:'',loadingHistoryHours:'',loadingHistoryPaid:'',rateSource:'agreement',employmentRole:'',toCommencementDate:'',fcoAppointmentDate:'',stoPromotionDate:'',previousRoleBeforeSto:'',classificationOverride:true,classification:'',manualBaseRate:0,baseRate:0,wdMult:1,satMult:1.5,sunMult:2,addHoursMult:1.84,weekendOtMult:2,publicHolidayWorkedMult:2.5,hdRate:4.87,maRate:4.87,nightRate:5.77,lease:0,gesb:0,postTax:0,annualLeaveLoadingRate:12.55,extraTax:0,employeeName:'',serviceNumber:'',customPublicHolidays:'',homeLine:'',rosterLineNumber:0,rosterLineAnchorDate:'',otTarget:1};
+  const defaults={loadingHistoryYear:'',loadingHistoryHours:'',loadingHistoryPaid:'',rateSource:'agreement',employmentRole:'',toCommencementDate:'',fcoAppointmentDate:'',stoPromotionDate:'',previousRoleBeforeSto:'',classificationOverride:true,classification:'',manualBaseRate:0,baseRate:0,wdMult:1,satMult:1.5,sunMult:2,addHoursMult:1.84,weekendOtMult:2,publicHolidayWorkedMult:2.5,hdRate:4.87,maRate:4.87,nightRate:5.77,lease:0,gesb:0,postTax:0,annualLeaveLoadingRate:12.55,extraTax:0,employeeName:'',serviceNumber:'',customPublicHolidays:'',homeLine:'',rosterLineNumber:0,rosterLineAnchorDate:'',otTarget:1};
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   const money=n=>new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(n)||0);
   const localISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -2769,7 +2769,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     saveCurrent();
     const payload={
       app:'PTA ShiftMate',
-      version:'2.7.9-leave-loading',
+      version:'2.7.10-full-time',
       exportedAt:new Date().toISOString(),
       current:AppStorage.loadCurrent(),
       cycles:AppStorage.loadCycles()

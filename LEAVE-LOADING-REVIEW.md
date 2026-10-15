@@ -1,5 +1,10 @@
 # TEST annual leave loading review
 
+## Full-time-only update (2.7.10)
+
+The app now supports full-time employees only. Legacy employmentFraction and partTimeLeaveHours values are ignored in all entitlement calculations, including saved cycles and restored data. Explicit individual leave hours are retained. Cap year/history inputs remain optional under the collapsed Advanced leave-loading settings section; blank history remains Unknown. No tax, mileage or acting-pay formula change is made. The part-time description below records the superseded 2.7.9 implementation, not current behaviour.
+
+
 ## Source and effective date
 
 PTA/RTBU exchange of letters dated 3 August 2026, Attachment A, supplied privately for this review. The operational-roster table applies from 23 August 2026. The source document, payslips, signatures and screenshots are not committed. The percentages are implemented in annualLeaveLoading.js and apply to the substantive classification and base rate resolved for each leave date, including profile progression within a cycle. Acting/higher-duty flags do not increase the loading. Existing historical calculations before 23 August are retained.
@@ -59,4 +64,4 @@ Sources for subsequent withholding/entitlement review:
 
 Run node tests/annualLeaveLoading.test.js, node tests/payCalculator.test.js, node tests/offlineAllowanceCoverage.test.js, and node tests/annualLeaveLoading.browser.test.cjs (with PLAYWRIGHT_MODULE configured). The browser check exercises mobile-sized day controls and a network-disabled reload; it does not substitute for a physical iPhone/WebKit test.
 
-Cache and changed script URLs use 2.7.9-leave-loading. The new module and exact versioned shell URLs are precached. After the TEST branch is deployed, open TEST online, close and reopen the installed app, confirm version 2.7.9 LEAVE LOADING in Settings, then verify both cycles online and in airplane mode. Back up local roster data before any manual cache troubleshooting. This PR does not deploy or promote to LIVE.
+Cache and changed script URLs use 2.7.10-full-time. The new module and exact versioned shell URLs are precached. After the TEST branch is deployed, open TEST online, close and reopen the installed app, confirm version 2.7.10 FULL TIME in Settings, then verify both cycles online and in airplane mode. Back up local roster data before any manual cache troubleshooting. This PR does not deploy or promote to LIVE.

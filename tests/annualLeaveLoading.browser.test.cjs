@@ -18,7 +18,7 @@ let server,browser;
   const days=Array.from({length:14},(_,i)=>[0,1,5,6,7,8,9,10].includes(i)
     ?{code:'A/L',type:'Leave',start:'00:00',finish:'10:00',leaveHours:10,entered:true}
     :{code:'',type:'Off',entered:true});
-  const fixture={startDate:'2026-09-20',days,settings:{classification:'STO3',classificationOverride:true,rateSource:'agreement',baseRate:44.37,homeLine:'ARMADALE',lease:546.95,gesb:100,postTax:7.4,extraTax:0}};
+  const fixture={startDate:'2026-09-20',days,settings:{employmentFraction:.5,partTimeLeaveHours:6,classification:'STO3',classificationOverride:true,rateSource:'agreement',baseRate:44.37,homeLine:'ARMADALE',lease:546.95,gesb:100,postTax:7.4,extraTax:0}};
   await context.addInitScript(f=>{if(!localStorage.getItem('ptaV2Current'))localStorage.setItem('ptaV2Current',JSON.stringify(f));},fixture);
   const url=`http://127.0.0.1:${server.address().port}/`;await page.goto(url);
   await page.waitForFunction(()=>document.querySelector('#gross')?.textContent==='$4,443.78');
@@ -26,6 +26,23 @@ let server,browser;
   assert.equal(await page.locator('#publicHolidayPay').textContent(),'$443.70');
   assert.match(await page.locator('#leaveCalculationAudit').textContent(),/12\.774123/);
   assert.match(await page.locator('#leaveCalculationAudit').textContent(),/history is unavailable/);
+  await page.locator('.nav-button[data-go="settings"]').click();
+  assert.equal(await page.locator('#employmentFraction,#partTimeLeaveHours').count(),0);
+  assert.equal(await page.locator('#advancedLeaveLoadingSettings').getAttribute('open'),null);
+  assert.equal(await page.locator('#loadingHistoryHours').getAttribute('placeholder'),'Unknown');
+  await page.locator('#advancedLeaveLoadingSettings summary').click();
+  await page.locator('#loadingHistoryYear').fill('2026');
+  await page.locator('#loadingHistoryHours').fill('190');
+  await page.locator('#loadingHistoryPaid').fill('2640');
+  await page.locator('#saveCurrent').click();
+  await page.waitForFunction(()=>document.querySelector('#leaveCalculationAudit').textContent.includes('loading ='));
+  assert.ok(!(await page.locator('#leaveCalculationAudit').textContent()).includes('history is unavailable'));
+  await page.locator('.nav-button[data-go="settings"]').click();
+  await page.locator('#loadingHistoryYear').fill('');
+  await page.locator('#loadingHistoryHours').fill('');
+  await page.locator('#loadingHistoryPaid').fill('');
+  await page.locator('#saveCurrent').click();
+  await page.waitForFunction(()=>document.querySelector('#gross').textContent==='$4,443.78');
   // Exercise controls and saved data, including the real day-details portal.
   await page.locator('.nav-button[data-go="roster"]').click();
   const holiday=page.locator('.day-card').nth(8);await holiday.locator('.details-button').click();
