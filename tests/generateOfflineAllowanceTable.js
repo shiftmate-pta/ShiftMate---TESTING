@@ -65,7 +65,7 @@ for(const [homeLine,homeLabel] of Object.entries(ROSTER_LINES)){
       status='Agreement Schedule 2';
     }else if(Object.hasOwn(LINE_ALLOWANCE_VALIDATED_KM[matrixKey]||{},destination.stationCode)){
       distance=LINE_ALLOWANCE_VALIDATED_KM[matrixKey][destination.stationCode];
-      status='Validated against supplied payroll test';
+      status='Payroll-confirmed provisional route; not Schedule 2';
     }else{
       distance=LINE_ALLOWANCE_PROVISIONAL_KM[matrixKey]?.[destination.stationCode];
       status='Provisional calculated route';
@@ -93,7 +93,7 @@ const notes=[
   ['Generated','10 October 2026'],
   ['Rule','Cross-designated-line directed/rostered work receives one hour at base rate plus the return-kilometre reimbursement. Cost-neutral exchanges receive neither.'],
   ['Agreement distances','Transit Officers Enterprise Agreement 2022, Schedule 2; preserved exactly.'],
-  ['Validated distance','Armadale home to Ellenbrook duty start is retained at 34.38 km because it reconciles the supplied actual payroll test.'],
+  ['Payroll-confirmed provisional distance','Burswood (Armadale home line) to Ellenbrook station return route: 54.3 km. Supplied payroll confirms this route only; not an agreed Schedule 2 update or a reverse-route value.'],
   ['Provisional distances','Network extensions absent from Schedule 2 use OSRM road routes and OpenStreetMap station coordinates. They require replacement if PTA/union supplies an agreed updated table.'],
   []
 ];

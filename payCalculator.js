@@ -73,6 +73,13 @@ window.PayCalc = (() => {
       ? Number(provisionalTable[stationCode])
       : null;
   };
+  const distanceMeta=(homeRoster,workedRoster,stationCode)=>{
+    const home=designatedLineForRoster(homeRoster),worked=designatedLineForRoster(workedRoster);
+    const key=home==='NORTHERN_MANDURAH'?(worked==='SOUTHERN_MANDURAH'?'NORTHERN_MANDURAH_AUBINGROVE':'NORTHERN_MANDURAH_BULLCREEK'):home;
+    const kind=Object.hasOwn((window.LINE_ALLOWANCE_KM||{})[key]||{},stationCode)?'agreement':Object.hasOwn((window.LINE_ALLOWANCE_VALIDATED_KM||{})[key]||{},stationCode)?'validated':'provisional';
+    return (window.LINE_ALLOWANCE_DISTANCE_META||{})[kind]||{};
+  };
+  // Circular 6/2026 confirms the metropolitan rate from 1 July 2026.
   const vehicleRateForDate=date=>iso(date)>='2026-07-01'?.98:.895;
 
   // Known payroll rates for the current Armadale operational roster.
@@ -87,13 +94,59 @@ window.PayCalc = (() => {
     return {maRate:4.48,nightRate:5.31,earlyLateRate:5.31,hdRate:4.48,annualLeaveLoadingRate:configuredLoading||11.6045};
   };
 
+  // Explicit leave hours/time establish the replaced shift. OFF defaults remain 8h.
+  const publicHolidayHours=(row,date,settings,paidLeaveHours)=>{
+    const fraction=Math.min(1,Math.max(0,Number(settings.employmentFraction??1)));
+    if(row.phOrdinaryDay==='no')return fraction<1?0:8;
+    if(row.phOrdinaryHours!==''&&row.phOrdinaryHours!=null)return Math.max(0,Number(row.phOrdinaryHours)||0);
+    if(paidLeaveHours!=null)return paidLeaveHours;
+    if(fraction<1)return row.phOrdinaryDay==='yes'?8*fraction:0;
+    return 8;
+  };
+  const leaveHoursUsed=(row,date,settings={})=>{
+    const data=window.SHIFT_DATA[row.code];
+    if(!data?.leaveType)return 0;
+    const key=iso(date),holiday=waPublicHolidays(date.getFullYear(),settings.customPublicHolidays).has(key);
+    if(holiday&&!['lsl','lwop','parental','paid-parental','unpaid-parental'].includes(data.leaveType))return 0;
+    if(row.leaveHours!==''&&row.leaveHours!=null)return Math.max(0,Number(row.leaveHours)||0);
+    if(row.start&&row.finish)return ((mins(row.finish)-mins(row.start)+1440)%1440)/60;
+    return Number(settings.employmentFraction??1)<1?Math.max(0,Number(settings.partTimeLeaveHours)||0):(data.defaultHours||10);
+  };
+
   const calculate=({days,startDate,settings})=>{
     const start=new Date(startDate+'T00:00:00');
     const holidays=holidayMapForRange(start,settings.customPublicHolidays);
     let gross=0,hours=0,reimbursements=0;const dayTotals=[];
     const breakdown={workedPay:0,annualLeavePay:0,sickLeavePay:0,lslPay:0,lwopPay:0,extrasPay:0,additionalHoursPay:0,publicHolidayPay:0,reimbursements:0};
     const allowanceDetails=[],reimbursementDetails=[],publicHolidayDetails=[],phBuckets=new Map();
-    const rows=[];
+    const rows=[],annualLeaveDetails=[],calculationWarnings=new Set(),leaveUsage={annual:0,personal:0,longService:0},loadingHistory=new Map();
+    const round=window.AnnualLeaveLoading?.round||(n=>Math.round((n+Number.EPSILON)*100)/100);
+    function addAnnual(info,leaveHours){
+      const date=iso(info.date),loading=window.AnnualLeaveLoading?.resolve(settings,date,info.row.leaveCommencementDate||date);
+      let baseRate=settings.baseRate,rate=Math.max(payrollRatesForDate(info.date,settings).annualLeaveLoadingRate,baseRate*.20),detail;
+      if(loading?.error){calculationWarnings.add(loading.error);rate=0;}
+      else if(loading){
+        baseRate=loading.baseRate;rate=loading.payableRate;
+        if(loading.cap==null)calculationWarnings.add('Annual leave loading cap for '+loading.year+' is not verified; the 2026 cap has not been carried forward.');
+        if(!loadingHistory.has(loading.year)){
+          const known=Number(settings.loadingHistoryYear)===loading.year&&settings.loadingHistoryHours!==''&&settings.loadingHistoryHours!=null&&settings.loadingHistoryPaid!==''&&settings.loadingHistoryPaid!=null&&Number(settings.loadingHistoryHours)>=0&&Number(settings.loadingHistoryPaid)>=0;
+          loadingHistory.set(loading.year,{hours:known?Number(settings.loadingHistoryHours):0,paid:known?Number(settings.loadingHistoryPaid):0,known});
+          if(!known)calculationWarnings.add('Cumulative annual leave loading history is unavailable for '+loading.year+'; proportional rate cap applied, cumulative payroll cap not fully verified.');
+        }
+        detail={...loading};
+      }
+      const basePay=loading?round(leaveHours*baseRate):leaveHours*baseRate;
+      let loadingPay=loading?round(leaveHours*rate):leaveHours*rate;
+      if(loading&&!loading.error){
+        const history=loadingHistory.get(loading.year);history.hours+=leaveHours;
+        const cumulativeCap=window.AnnualLeaveLoading.capFor(loading.year,history.hours,loading.fraction);
+        if(cumulativeCap!=null)loadingPay=Math.min(loadingPay,Math.max(0,round(cumulativeCap-history.paid)));
+        history.paid=round(history.paid+loadingPay);
+      }
+      const amount=basePay+loadingPay;leaveUsage.annual+=leaveHours;
+      annualLeaveDetails.push({date,dayIndex:info.i,hours:leaveHours,baseRate,basePay,loadingRate:rate,loadingPay,amount,...(detail||{}),rounding:'one payment line per leave date'});
+      return amount;
+    }
 
     days.forEach((row,i)=>{
       const date=addDays(start,i),data=window.SHIFT_DATA[row.code];let st=row.start,fn=row.finish;
@@ -115,27 +168,30 @@ window.PayCalc = (() => {
       const dayHoliday=holidays.get(iso(date));
       if(data&&data.leaveType){
         const defaultLeaveHours=duration/60;
-        const leaveHours=row.leaveHours===''||row.leaveHours==null?defaultLeaveHours:Math.max(0,Number(row.leaveHours)||0);
-        if(dayHoliday&&data.leaveType!=='lsl'&&data.leaveType!=='lwop'){
-          const amount=8*settings.baseRate;dayGross+=amount;dayHours+=8;breakdown.publicHolidayPay+=amount;
-          publicHolidayDetails.push({date:iso(date),name:dayHoliday,type:'Public holiday during paid leave',hours:8,amount,dayIndex:i});
+        let leaveHours=row.leaveHours===''||row.leaveHours==null?defaultLeaveHours:Math.max(0,Number(row.leaveHours)||0);
+        if(Number(settings.employmentFraction??1)<1&&(row.leaveHours===''||row.leaveHours==null)&&((Number(settings.partTimeLeaveHours)||0)>0||!(row.start&&row.finish))){
+          leaveHours=Math.max(0,Number(settings.partTimeLeaveHours)||0);
+          if(!leaveHours)calculationWarnings.add('Enter regular or qualifying-service average ordinary leave hours for part-time leave (clause 6.5.6).');
+        }
+        if(dayHoliday&&!['lsl','lwop','parental','paid-parental','unpaid-parental'].includes(data.leaveType)){
+          const phHours=publicHolidayHours(row,date,settings,leaveHours+(data.leaveType==='sick'?Math.max(0,Number(row.annualLeaveHours)||0):0));
+          const amount=round(phHours*settings.baseRate);dayGross+=amount;dayHours+=phHours;breakdown.publicHolidayPay+=amount;
+          publicHolidayDetails.push({date:iso(date),name:dayHoliday,type:'Public holiday during paid leave',hours:phHours,rate:settings.baseRate,amount,dayIndex:i});
         }else if(data.leaveType==='annual'){
-          const effectiveRates=payrollRatesForDate(date,settings);
-          const effectiveLoading=Math.max(effectiveRates.annualLeaveLoadingRate,settings.baseRate*.20);
-          const amount=leaveHours*(settings.baseRate+effectiveLoading);dayGross+=amount;dayHours+=leaveHours;breakdown.annualLeavePay+=amount;
+          const amount=addAnnual(info,leaveHours);dayGross+=amount;dayHours+=leaveHours;breakdown.annualLeavePay+=amount;
         }else if(data.leaveType==='sick'){
           // Mixed leave fields are additive: leaveHours is personal leave; annualLeaveHours is extra annual leave.
           const sickPart=Math.max(0,leaveHours);
           const annualPart=Math.max(0,Number(row.annualLeaveHours)||0);
+          leaveUsage.personal+=sickPart;
           const sickAmount=sickPart*settings.baseRate;
           dayGross+=sickAmount;dayHours+=sickPart;breakdown.sickLeavePay+=sickAmount;
           if(annualPart>0){
-            const effectiveRates=payrollRatesForDate(date,settings);
-            const effectiveLoading=Math.max(effectiveRates.annualLeaveLoadingRate,settings.baseRate*.20);
-            const annualAmount=annualPart*(settings.baseRate+effectiveLoading);
+            const annualAmount=addAnnual(info,annualPart);
             dayGross+=annualAmount;dayHours+=annualPart;breakdown.annualLeavePay+=annualAmount;
           }
         }else if(data.leaveType==='lsl'){
+          leaveUsage.longService+=leaveHours;
           const amount=leaveHours*settings.baseRate;dayGross+=amount;dayHours+=leaveHours;breakdown.lslPay+=amount;
         }else breakdown.lwopPay+=0;
       }else if(data&&st&&fn&&row.type!=='Off'){
@@ -270,13 +326,14 @@ window.PayCalc = (() => {
               const mileage=distance*rate;
               reimbursements+=mileage;
               breakdown.reimbursements+=mileage;
-              reimbursementDetails.push({type:'Kilometre reimbursement',date:iso(date),dayIndex:i,code:row.code,amount:mileage,distance,rate,workedRosterLine:workedRoster});
+              reimbursementDetails.push({type:'Kilometre reimbursement',date:iso(date),dayIndex:i,code:row.code,amount:mileage,distance,rate,distanceMeta:distanceMeta(settings.homeLine,workedRoster,data.stationCode),withholdingStatus:'Unverified: existing exclusion from withholding retained',workedRosterLine:workedRoster});
             }
           }
         }
       }else if(!data&&dayHoliday){
-        const amount=8*settings.baseRate;dayGross+=amount;dayHours+=8;breakdown.publicHolidayPay+=amount;
-        publicHolidayDetails.push({date:iso(date),name:dayHoliday,type:'Public holiday not worked',hours:8,amount,dayIndex:i});
+        const phHours=publicHolidayHours(row,date,settings);
+        const amount=round(phHours*settings.baseRate);dayGross+=amount;dayHours+=phHours;breakdown.publicHolidayPay+=amount;
+        publicHolidayDetails.push({date:iso(date),name:dayHoliday,type:'Public holiday not worked',hours:phHours,rate:settings.baseRate,amount,dayIndex:i});
       }
 
       rows[i].prePhGross=dayGross;rows[i].dayHours=dayHours;rows[i].additionalPay=additionalPay;
@@ -301,7 +358,9 @@ window.PayCalc = (() => {
 
     rows.forEach((info,i)=>{const dayGross=info.prePhGross||0;gross+=dayGross;hours+=info.dayHours||0;dayTotals.push({gross:dayGross,hours:info.dayHours||0,start:info.st||'',finish:info.fn||'',additionalPay:info.additionalPay||0,holidayName:holidays.get(iso(info.date))||''})});
     const taxable=Math.max(0,gross-settings.lease-settings.gesb),tax=taxable?Math.max(0,Math.round(annualTax(taxable*26)/26+settings.extraTax)):0,net=taxable-tax-settings.postTax+reimbursements;
-    return {gross,taxable,tax,hours,net,reimbursements,netHourly:hours?net/hours:0,dayTotals,breakdown,allowanceDetails,reimbursementDetails,publicHolidayDetails};
+    const deductions={salaryPackaging:Number(settings.lease)||0,superPreTax:Number(settings.gesb)||0,postTax:Number(settings.postTax)||0};
+    if(reimbursements)calculationWarnings.add('Mileage withholding is unverified; the existing exclusion is retained.');
+    return {annualLeaveDetails,leaveUsage,calculationWarnings:[...calculationWarnings],deductions,gross,taxable,tax,hours,net,reimbursements,netHourly:hours?net/hours:0,dayTotals,breakdown,allowanceDetails,reimbursementDetails,publicHolidayDetails};
   };
-  return {calculate,dayGroup,waPublicHolidays};
+  return {calculate,dayGroup,waPublicHolidays,publicHolidayHours,leaveHoursUsed};
 })();

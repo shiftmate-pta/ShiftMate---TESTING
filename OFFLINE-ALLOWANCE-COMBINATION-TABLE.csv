@@ -2,7 +2,7 @@
 "Generated","10 October 2026"
 "Rule","Cross-designated-line directed/rostered work receives one hour at base rate plus the return-kilometre reimbursement. Cost-neutral exchanges receive neither."
 "Agreement distances","Transit Officers Enterprise Agreement 2022, Schedule 2; preserved exactly."
-"Validated distance","Armadale home to Ellenbrook duty start is retained at 34.38 km because it reconciles the supplied actual payroll test."
+"Payroll-confirmed provisional distance","Burswood (Armadale home line) to Ellenbrook station return route: 54.3 km. Supplied payroll confirms this route only; not an agreed Schedule 2 update or a reverse-route value."
 "Provisional distances","Network extensions absent from Schedule 2 use OSRM road routes and OpenStreetMap station coordinates. They require replacement if PTA/union supplies an agreed updated table."
 
 "Home line","Home designated line","Off-line roster","Off-line designated line","Duty start location","Station code","Return km","Distance status","One-hour payment","2026-27 mileage at $0.98/km","Shift codes"
@@ -52,7 +52,7 @@
 "Armadale","ARMADALE","Airport","AIRPORT","High Wycombe","HW","29.80","Provisional calculated route","Yes — 1 hour at base rate","29.20","11A 11M 60 60V 61 62 APA APM HW"
 "Armadale","ARMADALE","Airport","AIRPORT","Redcliffe","RS","19.10","Agreement Schedule 2","Yes — 1 hour at base rate","18.72","RC"
 "Armadale","ARMADALE","Ellenbrook","ELLENBROOK","Ballajura","BL","32.80","Provisional calculated route","Yes — 1 hour at base rate","32.14","BL"
-"Armadale","ARMADALE","Ellenbrook","ELLENBROOK","Ellenbrook","EB","34.38","Validated against supplied payroll test","Yes — 1 hour at base rate","33.69","80 81 EB"
+"Armadale","ARMADALE","Ellenbrook","ELLENBROOK","Ellenbrook","EB","54.30","Payroll-confirmed provisional route; not Schedule 2","Yes — 1 hour at base rate","53.21","80 81 EB"
 "Armadale","ARMADALE","Ellenbrook","ELLENBROOK","Morley","MY","24.00","Provisional calculated route","Yes — 1 hour at base rate","23.52","MY"
 "Armadale","ARMADALE","Ellenbrook","ELLENBROOK","Noranda","NR","25.10","Provisional calculated route","Yes — 1 hour at base rate","24.60","82 NR"
 "Armadale","ARMADALE","Ellenbrook","ELLENBROOK","Whiteman Park","WP","44.80","Provisional calculated route","Yes — 1 hour at base rate","43.90","14A 14M"

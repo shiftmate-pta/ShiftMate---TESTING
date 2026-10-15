@@ -17,11 +17,11 @@ window.LINE_ALLOWANCE_PROVISIONAL_KM = {
 };
 window.LINE_ALLOWANCE_DISTANCE_META = {
   agreement:{source:'Transit Officers Enterprise Agreement 2022, Schedule 2',status:'agreed'},
-  validated:{source:'Reconciled against an actual payroll result supplied for testing',status:'validated test case, not an updated Schedule 2'},
+  validated:{source:'Payroll-confirmed Burswood to Ellenbrook station return route',status:'provisional payroll-confirmed route; not an updated Schedule 2'},
   provisional:{source:'OSRM road route using OpenStreetMap station coordinates, calculated 10 October 2026',status:'provisional pending an agreed updated Schedule 2'}
 };
 window.LINE_ALLOWANCE_VALIDATED_KM = {
-  "ARMADALE":{"EB":34.38}
+  "ARMADALE":{"EB":54.3}
 };
 window.SHIFT_STATION_CODE_BY_NAME = {
   'Byford':'BYF',
