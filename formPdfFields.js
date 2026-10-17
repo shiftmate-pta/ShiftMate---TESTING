@@ -6,7 +6,7 @@
   window.FormPdfFields={
     leave:{
       width:1414,height:2000,template:'./leave-form-template.pdf',
-      identity:{name:field(211,260,1138,37),service:field(1087,305,263,36),home:field(279,349,541,36)},
+      identity:{position:field(253,305,553,36),name:field(211,260,1138,37),service:field(1087,305,263,36),home:field(279,349,541,36)},
       employee:{name:field(398,1647,361,33,20),date:field(398,1732,361,33,20)},
       rows:{annual:[516,611],lsl:[613,654],illness:[753,794],care:[796,837],unanticipated:[839,907],bereavement:[909,950],dil:[952,992],'paid-parental':[995,1035],'unpaid-parental':[1037,1078],military:[1080,1121],union:[1123,1164],easter:[1166,1206],other:[1209,1249]},
       columns:{start:[619,143],end:[788,159],hours:[973,92],comments:[1091,259]},

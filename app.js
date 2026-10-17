@@ -674,6 +674,7 @@
           return {x,y:top+4,width,height:bottom-top-8,size:20,label,multiline};
         };
         await page.text({...map.identity.name,label:'Employee name'},name);
+        await page.text({...map.identity.position,label:'Position'},FormPdf.leavePosition(current.settings.classification));
         await page.text({...map.identity.service,label:'Service number'},service);
         await page.text({...map.identity.home,label:'Home line'},home);
         await page.text(cell('start','Start date'),fmtFormDate(first));
@@ -2672,7 +2673,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     saveCurrent();
     const payload={
       app:'PTA ShiftMate',
-      version:'2.7.11-pta-forms',
+      version:'2.7.12-pta-position',
       exportedAt:new Date().toISOString(),
       current:AppStorage.loadCurrent(),
       cycles:AppStorage.loadCycles()

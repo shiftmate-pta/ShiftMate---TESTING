@@ -14,10 +14,14 @@ context.window.PDFLib=context.PDFLib;
 for(const file of ['formPdfFields.js','formPdf.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context);
 async function check(){
   const {FormPdf,FormPdfFields}=context.window;
+  for(const level of ['TO1','TO2','TO3','TO4','TO5','FCO'])assert.equal(FormPdf.leavePosition(level),'TRANSIT OFFICER');
+  for(const level of ['STO1','STO2','STO3'])assert.equal(FormPdf.leavePosition(level),'SENIOR TRANSIT OFFICER');
+  assert.equal(FormPdf.leavePosition(''),'');
   const leave=await FormPdf.create('leave');
   for(const key of Object.keys(leave.map.rows)){
     const page=await leave.addPage();
     await page.text(leave.map.identity.name,'Alex D’Souza-José');
+    await page.text(leave.map.identity.position,FormPdf.leavePosition('STO1'));
     const [top,bottom]=leave.map.rows[key];
     await page.text({x:619,y:top+4,width:143,height:bottom-top-8,size:20},'30/10/2026');
     page.check(leave.map.boxes.contactYes,true);

@@ -2,6 +2,12 @@
 (() => {
   'use strict';
   const {PDFDocument,StandardFonts,rgb}=window.PDFLib;
+  const leavePosition=classification=>{
+    const level=String(classification||'').trim().toUpperCase();
+    if(/^STO[1-3]$/.test(level))return 'SENIOR TRANSIT OFFICER';
+    if(/^TO[1-5]$/.test(level)||level==='FCO')return 'TRANSIT OFFICER';
+    return level==='TRAINEE'?'TRAINEE':'';
+  };
   const black=rgb(0.067,0.067,0.067);
   const fetchBytes=async path=>{
     const response=await fetch(path);
@@ -108,5 +114,5 @@
       close(){if(preview&&!preview.closed)preview.close();if(url)URL.revokeObjectURL(url);}
     };
   }
-  window.FormPdf={create,reservePreview};
+  window.FormPdf={create,reservePreview,leavePosition};
 })();
