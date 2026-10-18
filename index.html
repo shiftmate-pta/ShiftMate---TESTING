@@ -8,9 +8,10 @@
 <meta content="ShiftMate TEST" name="apple-mobile-web-app-title"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <title>ShiftMate TEST</title>
-<link href="styles.css?v=2.7.12-pta-position" rel="stylesheet"/>
-<link href="apple-touch-icon.png?v=2.7.12-pta-position" rel="apple-touch-icon"/>
-<link href="manifest.json?v=2.7.12-pta-position" rel="manifest"/>
+<link href="styles.css?v=2.8.0-partner" rel="stylesheet"/>
+<link href="partnerRoster.css?v=2.8.0-partner" rel="stylesheet"/>
+<link href="apple-touch-icon.png?v=2.8.0-partner" rel="apple-touch-icon"/>
+<link href="manifest.json?v=2.8.0-partner" rel="manifest"/>
 <meta content="#05090b" name="theme-color"/>
 </head>
 <body>
@@ -22,6 +23,7 @@
 <div class="card upcoming-card fortnight-card">
 <div class="upcoming-head fortnight-head"><div><span class="eyebrow">Roster</span><h2>Fortnight</h2><small class="field-note" id="homeFortnightRange"></small></div></div>
 <div aria-label="Fourteen day roster" class="week-strip fortnight-strip" id="homeWeekStrip"></div>
+<small class="partner-shared-legend" hidden><span class="partner-rose-swatch"></span> Off together</small>
 </div>
 <div class="card current-card">
 <div><span class="eyebrow">Upcoming pay</span><select aria-label="Select pay cycle" class="home-pe-select" id="homeCycleSelect"></select><small class="cycle-range-sub" id="homeCycleRange">—</small></div>
@@ -73,6 +75,7 @@
 <span class="legend-stars legend-best">★</span><span>Best</span>
 </div>
 <small class="ot-target-note" id="otTargetNote">Recommendations optimised for 1 OT shift per fortnight</small>
+<small class="partner-shared-legend" hidden><span class="partner-rose-swatch"></span> Off together</small>
 <p class="helper" hidden="" id="calendarProjectionStatus"></p>
 </div>
 <div class="calendar-months" id="calendarMonths"></div><div class="calendar-loading" id="calendarLoading" hidden><span class="loading-lamp"></span><span>Loading…</span></div>
@@ -249,6 +252,7 @@
 <div><span class="eyebrow">Settings</span><h2>Employment and deductions</h2></div>
 </div>
 <p class="helper settings-helper">Select your current PTA level and enter only your personal deductions.</p>
+<details class="settings-section" id="partnerRosterSettings"></details>
 <details class="settings-section" open="">
 <summary><span>Employment</span><small>Select your current PTA level</small></summary>
 <div class="form-grid settings-grid employment-level-grid">
@@ -317,7 +321,7 @@
 </details>
 <details class="settings-section">
 <summary><span>About</span><small>ShiftMate app information</small></summary>
-<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.7.12 PDF REVIEW</div>
+<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.8.0 PARTNER ROSTER TEST</div>
 </details>
 <div class="action-grid settings-actions">
 <button class="primary" id="saveCurrent">Save settings</button>
@@ -425,13 +429,15 @@
 <button class="nav-button" data-go="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
 </nav>
 <script src="agreementData.js?v=8.3"></script>
-<script src="shiftData.js?v=2.7.12-pta-position"></script>
-<script src="annualLeaveLoading.js?v=2.7.12-pta-position"></script>
-<script src="payCalculator.js?v=2.7.12-pta-position"></script>
-<script src="storage.js?v=8.3"></script>
+<script src="shiftData.js?v=2.8.0-partner"></script>
+<script src="annualLeaveLoading.js?v=2.8.0-partner"></script>
+<script src="payCalculator.js?v=2.8.0-partner"></script>
+<script src="storage.js?v=2.8.0-partner"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
 <script src="formPdfFields.js?v=2"></script>
 <script src="formPdf.js?v=2"></script>
-<script src="app.js?v=2.7.12-pta-position"></script>
+<script src="partnerRoster.js?v=2.8.0-partner"></script>
+<script src="partnerRosterUI.js?v=2.8.0-partner"></script>
+<script src="app.js?v=2.8.0-partner"></script>
 </body>
 </html>
