@@ -28,4 +28,6 @@ On this Linux WebKit host a full offline `page.reload()` returns an internal nav
 
 ## Apply through Codex
 
+Codex review: current TEST main matched the PR base (cca1af1). The partner rules and existing pay, annual leave, PDF and allowance suites passed locally. Windows Chrome with an iPhone viewport passed the integration suite including full offline reload without the WebKit skip. The existing editor treats uncoded dates as unentered; the feature preserves that convention and does not infer availability from a wholly untouched cycle. Native iPhone Safari appearance and flip behaviour remain a target-device check.
+
 Review the feature branch against current TEST main, reconcile any intervening changes, run checks, and apply to TEST only. Verify the new partner scripts and CSS are in the offline shell and the cache version is updated. Keep LIVE, payroll rules, form generation and the paused scanner untouched. Report the actual deployed TEST commit and URL; do not claim deployment from a branch/PR alone.
