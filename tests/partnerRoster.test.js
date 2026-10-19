@@ -1,0 +1,43 @@
+const assert=require('node:assert/strict');
+const P=require('../partnerRoster.js');
+const sixFour=Array.from({length:10},(_,i)=>i<6?'work':'off');
+let roster=P.withVersion(null,{effectiveFrom:'2026-10-01',anchorDate:'2026-10-19',pattern:sixFour});
+for(const date of ['2026-10-19','2026-10-24','2026-10-29','2026-11-03'])assert.equal(P.stateOn(roster,date),'work',date);
+for(const date of ['2026-10-25','2026-10-26','2026-10-27','2026-10-28','2026-11-04','2026-11-07'])assert.equal(P.stateOn(roster,date),'off',date);
+assert.equal(P.stateOn(roster,'2026-10-18'),'off','negative modulo before anchor');
+assert.equal(P.stateOn(roster,'2026-09-30'),'unknown','before first effective pattern');
+assert.equal(P.stateOn(roster,'2026-02-30'),'unknown');
+assert.equal(P.ordinal('2026-02-29'),null);
+assert.notEqual(P.ordinal('2028-02-29'),null);
+for(const user of ['work','unknown'])assert.equal(P.sharedOff(roster,'2026-10-25',user),false);
+assert.equal(P.sharedOff(roster,'2026-10-25','off'),true);
+assert.equal(P.sharedOff(roster,'2026-10-24','off'),false);
+roster.overrides['2026-10-25']='work';
+assert.equal(P.sharedOff(roster,'2026-10-25','off'),false);
+roster.overrides['2026-10-25']='unknown';
+assert.equal(P.sharedOff(roster,'2026-10-25','off'),false);
+delete roster.overrides['2026-10-25'];
+const changed=P.withVersion(roster,{effectiveFrom:'2026-11-01',anchorDate:'2026-11-01',pattern:['off','work']});
+assert.equal(P.stateOn(changed,'2026-10-25'),'off','history preserved');
+assert.equal(P.stateOn(changed,'2026-11-01'),'off');
+assert.equal(P.stateOn(changed,'2026-11-02'),'work');
+const replaced=P.withVersion(changed,{effectiveFrom:'2026-11-01',anchorDate:'2026-11-01',pattern:['work']});
+assert.equal(replaced.versions.length,2);
+assert.equal(P.stateOn(replaced,'2026-11-01'),'work');
+const manual=P.normalize({mode:'manual',overrides:{'2026-10-25':'off','bad':'off','2026-10-26':'invalid'}});
+assert.equal(P.stateOn(manual,'2026-10-25'),'off');
+assert.equal(P.stateOn(manual,'2026-10-26'),'unknown');
+assert.deepEqual(Object.keys(manual.overrides),['2026-10-25']);
+for(const length of [1,7,10,14,28,84]){
+ const custom=P.withVersion(null,{effectiveFrom:'2026-01-01',anchorDate:'2026-01-01',pattern:Array.from({length},(_,i)=>i%2?'off':'work')});
+ assert.equal(P.stateOn(custom,'2026-01-01'),'work');
+ const date=new Date(Date.UTC(2026,0,1+length)).toISOString().slice(0,10);
+ assert.equal(P.stateOn(custom,date),'work',`repeat ${length}`);
+}
+assert.throws(()=>P.withVersion(null,{effectiveFrom:'2026-01-01',anchorDate:'2026-01-01',pattern:[]}));
+assert.equal(P.normalize({versions:[{effectiveFrom:'2026-01-01',anchorDate:'bad',pattern:['off']}]}).versions.length,0);
+// Cycle arithmetic across Perth and DST-observing zones is identical.
+const dst=P.withVersion(null,{effectiveFrom:'2026-01-01',anchorDate:'2026-03-28',pattern:['work','off']});
+assert.equal(P.stateOn(dst,'2026-03-30'),'work');
+assert.equal(P.stateOn(dst,'2026-10-25'),'off');
+console.log('Partner roster rules passed: cycle lengths, anchor alignment, overrides, manual/unknown, history and DST.');

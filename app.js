@@ -13,6 +13,7 @@
     return date.getFullYear()===y&&date.getMonth()===mo-1&&date.getDate()===d?date:null;
   };
   const parseDate=s=>new Date(s+'T00:00:00');
+  let partnerRoster=PartnerRoster.normalize(AppStorage.loadPartnerRoster());
   const emptyDay=()=>({code:'',type:'Rostered',hd:false,start:'',finish:'',earlyStartHours:0,additionalHours:0,leaveHours:'',annualLeaveHours:0,phOrdinaryDay:'',phOrdinaryHours:'',phBenefit:'lieu',offline:false,workedRosterLine:'',offlineReason:'directed',partner:'',personalLeaveReason:'illness',bookOffHours:0,bookOffLeaveType:'',bookOffLeaveReason:'illness',scheduledStart:'',scheduledFinish:'',entered:false});
   const rangeLabel=start=>{
     const a=parseDate(start),b=new Date(a);b.setDate(a.getDate()+13);
@@ -55,17 +56,21 @@
   };
   function rosterTimeline(){
     const map=new Map();
+    const savedCycles=AppStorage.loadCycles();
+    const savedActualStarts=new Set(savedCycles.filter(c=>c.days?.some(d=>d.code||d.type==='Off')).map(c=>c.startDate));
     const addCycle=(cycle,priority)=>{
       if(!cycle?.startDate||!Array.isArray(cycle.days))return;
       const start=parseDate(cycle.startDate);
+      const hasActualRoster=cycle.days.some(row=>Boolean(row.code));
       cycle.days.forEach((row,i)=>{
         const date=addRosterDays(start,i),key=localISO(date),existing=map.get(key);
         if(!existing||priority>=existing.priority){
-          map.set(key,{date,key,row:{...emptyDay(),...row},cycle,priority});
+          const savedActual=savedActualStarts.has(cycle.startDate);
+          map.set(key,{date,key,row:{...emptyDay(),...row},cycle,priority,savedActual,hasActualRoster});
         }
       });
     };
-    AppStorage.loadCycles().forEach(c=>addCycle(c,1));
+    savedCycles.forEach(c=>addCycle(c,1));
     addCycle(current,2);
     return map;
   }
@@ -113,6 +118,24 @@
     const period=actualShiftPeriod(entry,date);
     return {actual:Boolean(entry),projected:false,entry,period,label:rosterDisplayCode(entry),working:period!=='Off'};
   }
+  function shadeSharedOff(button,date,entries){
+    const key=localISO(date),entry=entries.get(key),row=entry?.row;
+    if(!button.classList.contains('shift-off')||PartnerRoster.stateOn(partnerRoster,key)!=='off')return;
+    // Follow the calendar's entered-cycle convention: blank dates in an
+    // actual roster are off. A wholly untouched cycle still needs a projection.
+    let availability='unknown';
+    if(row?.code)availability=actualShiftPeriod(entry,date)==='Off'?'off':'work';
+    else if(entry?.savedActual||entry?.hasActualRoster)availability='off';
+    else{const p=rosterProjectionForDate(date);if(p)availability=p.working?'work':'off'}
+    if(button.classList.contains('shift-off')&&PartnerRoster.sharedOff(partnerRoster,key,availability)){
+      button.classList.add('shared-off');
+      button.setAttribute('aria-label',`${date.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})}: off together${!row?.code&&!entry?.hasActualRoster&&!entry?.savedActual?' (projected)':''}`);
+    }
+  }
+  function updatePartnerLegends(){
+    const configured=partnerRoster.mode==='manual'?Object.keys(partnerRoster.overrides).length>0:partnerRoster.versions.length>0;
+    $$('.partner-shared-legend').forEach(el=>{el.hidden=!configured});
+  }
   function renderFortnightStrip(){
     const wrap=$('#homeWeekStrip');if(!wrap)return;
     const start=homeFortnightStart(),entries=rosterTimeline(),todayKey=localISO(new Date());
@@ -127,6 +150,7 @@
         const period=actualShiftPeriod(entry,date),label=rosterDisplayCode(entry);
         const periodClass=period==='Morn'||period==='Morning'?'shift-morn':period==='Arvo'?'shift-arvo':'shift-off';
         button.className=`week-day actual ${periodClass} ${key===todayKey?'today':''}`;
+        shadeSharedOff(button,date,entries);
         button.innerHTML=`${key===todayKey?'<span class="today-marker">TODAY</span>':''}<span class="week-dow">${date.toLocaleDateString('en-AU',{weekday:'short'})}</span>
           <span class="week-date">${date.getDate()}</span><strong>${label||''}</strong>`;
         button.onclick=()=>{calendarCursor=new Date(date.getFullYear(),date.getMonth(),1);go('calendar');renderCalendar(key)};
@@ -444,6 +468,7 @@
         const cycleStartKey=entry?.cycle?.startDate||(candidateProjection?.fortnightStart?localISO(candidateProjection.fortnightStart):'');
         const cycleBoundary=cycleStartKey===key?'fortnight-start':'';
         button.className=`calendar-day ${isActual?'actual':'projected'} ${periodClass} ${cycleBoundary} ${key===todayKey?'today':''} ${key===selectedKey?'selected':''} ${otRec?'ot-recommended':''}`;
+        shadeSharedOff(button,date,entries);
         if(calendarOtSelections.has(key))button.classList.add('ot-multi-selected');
         const front=`${key===todayKey?'<span class="today-marker">TODAY</span>':''}${starText?`<span class="ot-stars ${stars===2?'ot-best':'ot-good'}" aria-label="${stars===2?'Best OT':'Good OT'}">${starText}</span>`:''}<span class="calendar-date">${day}</span><strong>${label}</strong>`;
         const back=otRec?`<span class="ot-flip-stars ${otRec.stars===2?'ot-best':'ot-good'}">${otRec.stars===2?'★':otRec.stars===1?'☆':'OT'}</span><strong>${otRec.stars===2?'Best OT':otRec.stars===1?'Good OT':'If OT'}</strong><b>+${money(otRec.singleNetGain)}</b><small>net</small>`:'';
@@ -2673,10 +2698,11 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     saveCurrent();
     const payload={
       app:'PTA ShiftMate',
-      version:'2.7.12-pta-position',
+      version:'2.8.0-partner',
       exportedAt:new Date().toISOString(),
       current:AppStorage.loadCurrent(),
-      cycles:AppStorage.loadCycles()
+      cycles:AppStorage.loadCycles(),
+      partnerRoster:AppStorage.loadPartnerRoster()
     };
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
@@ -2700,6 +2726,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       if(!confirm(`Restore this backup with ${payload.cycles.length} saved pay cycles? Current app data will be replaced.`))return;
       AppStorage.saveCurrent(payload.current);
       AppStorage.saveCycles(payload.cycles);
+      AppStorage.savePartnerRoster(payload.partnerRoster?PartnerRoster.normalize(payload.partnerRoster):null);
       toast('Backup restored');
       setTimeout(()=>location.reload(),500);
     }catch(error){
@@ -3232,6 +3259,10 @@ const syncViewport=()=>{const vv=window.visualViewport;document.documentElement.
   if($('#exportBackup'))$('#exportBackup').onclick=exportBackup;
   if($('#importBackup'))$('#importBackup').onchange=e=>importBackup(e.target.files?.[0]);
 
+  PartnerRosterUI.mount($('#partnerRosterSettings'),value=>{
+    partnerRoster=PartnerRoster.normalize(value);updatePartnerLegends();renderFortnightStrip();renderCalendar();
+  });
+  updatePartnerLegends();
   buildRoster();
   loadSettingsIntoForm();
   if('serviceWorker' in navigator){
