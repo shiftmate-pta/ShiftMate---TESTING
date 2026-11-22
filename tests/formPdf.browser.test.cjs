@@ -97,6 +97,8 @@ async function run(){
     await page.evaluate(()=>{window.shareSupported=true;});
     const controls=viewer.locator('#pdfViewerControls');
     const before=await controls.boundingBox();
+    const pageBounds=await viewer.locator('#pdfViewerPages').boundingBox();
+    assert.ok(before.y>=pageBounds.y+pageBounds.height,'controls must sit below the preview');
     const originalWidth=await viewer.locator('canvas').first().evaluate(canvas=>canvas.clientWidth);
     await viewer.locator('#pdfViewerPages').evaluate(el=>{
       const finger=x=>new Touch({identifier:x,target:el,clientX:x,clientY:20});
