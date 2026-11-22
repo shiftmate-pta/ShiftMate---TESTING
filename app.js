@@ -1096,7 +1096,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     const group=date?PayCalc.dayGroup(date.getDay()):null;
     const codes=Object.keys(SHIFT_DATA||{}).filter(code=>{
       const data=SHIFT_DATA[code];
-      if(data?.leaveType)return false;
+      if(data?.leaveType||data?.training)return false;
       if(!group)return true;
       const times=data.times?.[group]||['',''];
       return Boolean(times[0]&&times[1]);
@@ -1120,7 +1120,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       .filter(code=>{
         const data=SHIFT_DATA[code];
         // Standby is available on every home/worked line. Its operational base is the selected line's home station.
-        if(code!=='SA'&&data.line!==line)return false;
+        if(code!=='SA'&&!data.training&&data.line!==line)return false;
         if(!group)return true;
         const times=data.times?.[group]||['',''];
         return Boolean(times[0]&&times[1]);
@@ -1204,7 +1204,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     const isSavedOffline=selected===OFFLINE_CODE;
     const validSelected=!isSavedOffline&&selected&&SHIFT_DATA[selected]&&(
       SHIFT_DATA[selected].line==='LEAVE'||
-      (selected==='SA'&&(()=>{
+      ((selected==='SA'||SHIFT_DATA[selected].training)&&(()=>{
         const times=SHIFT_DATA[selected].times?.[PayCalc.dayGroup(date.getDay())]||['',''];
         return Boolean(times[0]&&times[1]);
       })())||
@@ -1229,6 +1229,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     return `${String(Math.floor(x/60)).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`;
   };
   const operationalShiftType=code=>{
+    if(SHIFT_DATA[code]?.training||SHIFT_DATA[code]?.admin)return 'other';
     const c=String(code||'').trim().toUpperCase();
     if(/^\d+[AM]$/.test(c))return 'delta';
     if(/^[A-Z]+$/.test(c))return 'station';
@@ -1241,35 +1242,42 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     const s=minutesOf(start),f0=minutesOf(finish),f=f0<=s?f0+1440:f0;
     return Math.max(0,f-s);
   }
-  function bookOffDifference(code,date,actualStart,actualFinish){
+  function bookOffDifference(card,date,actualStart,actualFinish){
+    const code=effectiveShiftCode(card);
     const data=SHIFT_DATA[code];
     if(!data||data.leaveType||!actualStart||!actualFinish)return null;
-    const nominal=data.times[PayCalc.dayGroup(date.getDay())]||['',''];
+    const nominal=rosterNominal(data,date,card.dataset);
     if(!nominal[0]||!nominal[1])return null;
     const scheduled=logicalShiftMinutes(nominal[0],nominal[1]);
     const worked=logicalShiftMinutes(actualStart,actualFinish);
-    const missing=Math.max(0,scheduled-worked);
+    let missing=Math.max(0,scheduled-worked);
+    if(data.training||data.admin){
+      const start=minutesOf(actualStart),scheduledStart=minutesOf(nominal[0]);
+      const aligned=start<scheduledStart-720?start+1440:start;
+      missing=scheduled-Math.max(0,Math.min(aligned+worked,scheduledStart+scheduled)-Math.max(aligned,scheduledStart));
+    }
     return missing>0?{scheduledStart:nominal[0],scheduledFinish:nominal[1],scheduledMinutes:scheduled,workedMinutes:worked,missingHours:missing/60}:null;
   }
   function openBookOffChoice(card,date){
     // Off-line cards retain OFFLINE in the visible picker, so compare their
     // entered times against the actual selected operational shift instead.
-    const code=effectiveShiftCode(card);
     const actualStart=rosterControl(card,'.start-time')?.value||'';
     const actualFinish=rosterControl(card,'.finish-time')?.value||'';
-    const diff=bookOffDifference(code,date,actualStart,actualFinish);
+    const diff=bookOffDifference(card,date,actualStart,actualFinish);
     if(!diff)return;
-    pendingBookOff={card,date,code,actualStart,actualFinish,...diff};
+    pendingBookOff={card,date,actualStart,actualFinish,...diff};
+    $('#bookOffAnnual').hidden=!(SHIFT_DATA[effectiveShiftCode(card)]?.training||SHIFT_DATA[effectiveShiftCode(card)]?.admin);
     const summary=$('#bookOffSummary');
     if(summary)summary.innerHTML=`<strong>${diff.missingHours.toFixed(2)}h difference detected</strong><small>Rostered ${diff.scheduledStart}–${diff.scheduledFinish} • Entered ${actualStart}–${actualFinish}</small>`;
     $('#bookOffSheet').hidden=false;
   }
   function closeBookOffChoice(){if($('#bookOffSheet'))$('#bookOffSheet').hidden=true;pendingBookOff=null}
-  function confirmBookOff(){
+  function confirmBookOff(leaveType='sick'){
     if(!pendingBookOff)return;
     const {card,scheduledStart,scheduledFinish,missingHours}=pendingBookOff;
-    card.dataset.bookOffHours=String(missingHours);
-    card.dataset.bookOffLeaveType='sick';
+    const data=SHIFT_DATA[effectiveShiftCode(card)];
+    card.dataset.bookOffHours=String(data?.training||data?.admin?Math.round(missingHours*100)/100:missingHours);
+    card.dataset.bookOffLeaveType=leaveType;
     card.dataset.bookOffLeaveReason='illness';
     card.dataset.scheduledStart=scheduledStart;
     card.dataset.scheduledFinish=scheduledFinish;
@@ -1280,17 +1288,27 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
   }
   function acceptRosterAdjustment(){
     if(!pendingBookOff)return;
-    const {card}=pendingBookOff;
+    const {card,actualStart,actualFinish}=pendingBookOff;
     card.dataset.bookOffHours='0';card.dataset.bookOffLeaveType='';card.dataset.bookOffLeaveReason='';
-    card.dataset.scheduledStart='';card.dataset.scheduledFinish='';
+    const data=SHIFT_DATA[effectiveShiftCode(card)];
+    card.dataset.scheduledStart=data?.training||data?.admin?actualStart:'';
+    card.dataset.scheduledFinish=data?.training||data?.admin?actualFinish:'';
+    if(data?.training||data?.admin){
+      rosterControl(card,'.posted-start').value=actualStart;
+      rosterControl(card,'.posted-finish').value=actualFinish;
+    }
     closeBookOffChoice();syncCurrentFromUI();recalculate();
     toast('Roster adjustment recorded — no leave created');
   }
 
+  const rosterNominal=(data,date,row)=>(data.training||data.admin)&&row.scheduledStart&&row.scheduledFinish
+    ? [row.scheduledStart,row.scheduledFinish]
+    : data.times[PayCalc.dayGroup(date.getDay())]||['',''];
+
   function rosterVariation(row,date){
     const data=SHIFT_DATA[row?.code];
     if(!data||data.leaveType||row?.type==='Picked-up OT'||!row?.start||!row?.finish)return {early:0,extension:0,forced:0};
-    const nominal=data.times[PayCalc.dayGroup(date.getDay())]||['',''];
+    const nominal=rosterNominal(data,date,row);
     if(!nominal[0]||!nominal[1])return {early:0,extension:0};
     const ns=minutesOf(nominal[0]), nf=minutesOf(nominal[1])+(minutesOf(nominal[1])<=ns?1440:0);
     let as=minutesOf(row.start), af=minutesOf(row.finish);
@@ -1311,6 +1329,18 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     const face=card.querySelector('.shift-face-code');
     if(face)face.textContent=code?(/^\d+$/.test(code)?`T${code}`:code):'OFF';
     const data=SHIFT_DATA[code];
+    const customRoster=Boolean(data?.training||data?.admin);
+    const postedStart=rosterControl(card,'.posted-start');
+    const postedFinish=rosterControl(card,'.posted-finish');
+    const trainingKm=rosterControl(card,'.verified-training-km');
+    postedStart.parentElement.hidden=postedFinish.parentElement.hidden=!customRoster;
+    trainingKm.parentElement.hidden=!data?.training;
+    if(card.dataset.customRosterCode&&card.dataset.customRosterCode!==code){
+      card.dataset.bookOffHours='0';
+      card.dataset.bookOffLeaveType='';
+      trainingKm.value='';
+    }
+    card.dataset.customRosterCode=customRoster?code:'';
     const start=rosterControl(card,'.start-time');
     const finish=rosterControl(card,'.finish-time');
     const type=rosterControl(card,'.shift-type');
@@ -1320,6 +1350,13 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       start.value='';finish.value='';type.value='Off';hd.value='no';label.textContent='Off / no shift';return;
     }
     const times=data.times[PayCalc.dayGroup(date.getDay())]||['',''];
+    if(customRoster){
+      if(force||!card.dataset.scheduledStart||!card.dataset.scheduledFinish){
+        [card.dataset.scheduledStart,card.dataset.scheduledFinish]=times;
+      }
+      postedStart.value=card.dataset.scheduledStart;
+      postedFinish.value=card.dataset.scheduledFinish;
+    }
     if(force||!start.value||!finish.value){start.value=times[0];finish.value=times[1]}
     if(type.value==='Off') type.value='Rostered';
     if(data.autoHigherDuties) hd.value='yes';
@@ -1482,6 +1519,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       card.dataset.bookOffLeaveReason=row.bookOffLeaveReason||'illness';
       card.dataset.scheduledStart=row.scheduledStart||'';
       card.dataset.scheduledFinish=row.scheduledFinish||'';
+      card.dataset.customRosterCode=SHIFT_DATA[row.code]?.training||SHIFT_DATA[row.code]?.admin?row.code:'';
       card.innerHTML=`<div class="day-head"><div><b>${date.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</b><small>Day ${i+1}</small></div><span class="day-pay">$0.00</span></div>
       <div class="day-main">
         <label class="shift-picker"><span class="shift-face-code">${row.code?(/^\d+$/.test(row.code)?`T${row.code}`:row.code):'OFF'}</span><select class="shift-code" aria-label="Select shift">${opts(row.code,initialLine,date)}</select></label>
@@ -1504,6 +1542,9 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
           <label>Partner<input class="shift-partner" type="text" list="partnerSuggestions" value="${String(row.partner||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" placeholder="Optional"></label>
           <label>Higher duties<select class="higher-duties"><option value="no" ${row.hd?'':'selected'}>No</option><option value="yes" ${row.hd?'selected':''}>Yes</option></select></label>
           <label>Start<input class="start-time" type="time" value="${row.start||''}"></label>
+          <label hidden>Posted start<input class="posted-start" type="time"></label>
+          <label hidden>Posted finish<input class="posted-finish" type="time"></label>
+          <label hidden>Verified training return km<input class="verified-training-km" type="number" min="0" step="0.1" value="${Number.isFinite(row.verifiedTrainingKm)?row.verifiedTrainingKm:''}"><small>Leave blank to use Schedule 2.</small></label>
           <label>Finish<input class="finish-time" type="time" value="${row.finish||''}"></label>
           <label class="personal-leave-reason-field">Personal leave reason<select class="personal-leave-reason"><option value="illness" ${(row.personalLeaveReason||'illness')==='illness'?'selected':''}>Illness or injury</option><option value="care" ${row.personalLeaveReason==='care'?'selected':''}>Providing care/support to family</option><option value="unanticipated" ${row.personalLeaveReason==='unanticipated'?'selected':''}>Unanticipated matter requiring immediate attention</option></select></label>
           <label class="leave-hours-field">Paid leave hours<input class="leave-hours" type="number" min="0" step="0.001" value="${row.leaveHours??''}" placeholder="Use shift hours"><small class="field-note">Optional override for partial-day leave.</small></label>
@@ -1706,7 +1747,8 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
         const code=effectiveShiftCode(card);
         const data=SHIFT_DATA[code];
         const st=rosterControl(card,'.start-time')?.value||'--:--',fn=rosterControl(card,'.finish-time')?.value||'--:--';
-        const tempRow={code,type:rosterControl(card,'.shift-type')?.value||'Rostered',start:st,finish:fn};
+        const {scheduledStart,scheduledFinish}=card.dataset;
+        const tempRow={code,type:rosterControl(card,'.shift-type')?.value||'Rostered',start:st,finish:fn,scheduledStart,scheduledFinish};
         const variation=rosterVariation(tempRow,date);
         const bits=[];
         if(variation.early>0)bits.push(`${variation.early.toFixed(2)}h early OT`);
@@ -1718,9 +1760,32 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       };
       card.querySelector('.start-time').oninput=manualTime;
       card.querySelector('.finish-time').oninput=manualTime;
-      const considerBookOff=()=>{const diff=bookOffDifference(effectiveShiftCode(card),date,rosterControl(card,'.start-time')?.value||'',rosterControl(card,'.finish-time')?.value||'');if(diff)openBookOffChoice(card,date)};
+      const considerBookOff=()=>{
+        const data=SHIFT_DATA[effectiveShiftCode(card)];
+        if(data?.training||data?.admin){
+          card.dataset.bookOffHours='0';
+          card.dataset.bookOffLeaveType='';
+          syncCurrentFromUI();recalculate();
+        }
+        openBookOffChoice(card,date);
+      };
       card.querySelector('.start-time').onchange=considerBookOff;
       card.querySelector('.finish-time').onchange=considerBookOff;
+      for(const [field,actual,key] of [
+        ['.posted-start','.start-time','scheduledStart'],
+        ['.posted-finish','.finish-time','scheduledFinish']
+      ]){
+        card.querySelector(field).onchange=event=>{
+          const input=rosterControl(card,actual);
+          const latest=event.target.value;
+          if(!latest){event.target.value=card.dataset[key];return}
+          if(input.value===card.dataset[key])input.value=latest;
+          card.dataset[key]=latest;
+          manualTime();
+          considerBookOff();
+        };
+      }
+      card.querySelector('.verified-training-km').oninput=()=>{syncCurrentFromUI();recalculate()};
       refreshShiftOptions(card,date,row.offlineShiftCode?OFFLINE_CODE:(row.code||''));
       applyShiftDefaults(card,date,false);updateRosterCardState(card);
       if(row.code&&!SHIFT_DATA[row.code]?.leaveType){
@@ -1766,6 +1831,8 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       bookOffLeaveReason:card.dataset.bookOffLeaveReason||'illness',
       scheduledStart:card.dataset.scheduledStart||'',
       scheduledFinish:card.dataset.scheduledFinish||'',
+      ...(SHIFT_DATA[effectiveShiftCode(card)]?.training&&rosterControl(card,'.verified-training-km')?.value!==''?
+        {verifiedTrainingKm:rosterControl(card,'.verified-training-km').valueAsNumber}:{}),
       entered:card.dataset.entered==='true'
     }));
   }
@@ -3163,7 +3230,8 @@ const syncViewport=()=>{const vv=window.visualViewport;document.documentElement.
   const closeLeaveFormSheet=()=>{const sheet=$('#leaveFormSheet'),card=sheet?.querySelector('.leave-form-sheet-card');if(card){card.style.transform='';card.style.transition=''}if(sheet)sheet.hidden=true;pendingLeaveDocument=null};
   if($('#homeGenerateLeave'))$('#homeGenerateLeave').onclick=openLeaveFormFromHome;
   if($('#bookOffRosterAdjustment'))$('#bookOffRosterAdjustment').onclick=acceptRosterAdjustment;
-  if($('#bookOffConfirm'))$('#bookOffConfirm').onclick=confirmBookOff;
+  if($('#bookOffConfirm'))$('#bookOffConfirm').onclick=()=>confirmBookOff();
+  if($('#bookOffAnnual'))$('#bookOffAnnual').onclick=()=>confirmBookOff('annual');
   if($('#bookOffCancel'))$('#bookOffCancel').onclick=closeBookOffChoice;
   if($('#bookOffSheet'))$('#bookOffSheet').onclick=e=>{if(e.target===$('#bookOffSheet'))closeBookOffChoice()};
   if($('#leaveFormCancel'))$('#leaveFormCancel').onclick=closeLeaveFormSheet;

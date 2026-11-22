@@ -189,6 +189,7 @@ window.PayCalc = (() => {
           const amount=leaveHours*settings.baseRate;dayGross+=amount;dayHours+=leaveHours;breakdown.lslPay+=amount;
         }else breakdown.lwopPay+=0;
       }else if(data&&st&&fn&&row.type!=='Off'){
+        const eligibleTraining=data.training&&String(settings.classification||settings.employmentRole||'').toUpperCase()!=='TRAINEE';
         const effectiveBase=settings.baseRate+(row.hd?payrollRatesForDate(date,settings).hdRate:0);
         const actualStartMin=mins(st);
         const actualDuration=duration;
@@ -203,7 +204,10 @@ window.PayCalc = (() => {
           });
           breakdown.additionalHoursPay+=additionalPay;
         }else{
-          const nominal=data.times[dayGroup(date.getDay())]||[st,fn];
+          const customRoster=data.training||data.admin;
+          const nominal=customRoster&&row.scheduledStart&&row.scheduledFinish
+            ? [row.scheduledStart,row.scheduledFinish]
+            : data.times[dayGroup(date.getDay())]||[st,fn];
           const nominalStartMin=mins(nominal[0]);
           const nominalDuration=((mins(nominal[1])-nominalStartMin+1440)%1440||1440);
           const nominalFinishAbs=nominalStartMin+nominalDuration;
@@ -225,11 +229,27 @@ window.PayCalc = (() => {
 
           const ordinaryStart=Math.max(effectiveActualStart,nominalStartMin);
           const ordinaryFinish=Math.min(effectiveActualFinish,nominalFinishAbs);
+          if(customRoster&&['annual','sick'].includes(row.bookOffLeaveType)){
+            const workedMinutes=Math.max(0,ordinaryFinish-ordinaryStart);
+            const leaveHours=Math.min(Number(row.bookOffHours)||0,(nominalDuration-workedMinutes)/60);
+            if(leaveHours>0){
+              if(dayHoliday||splitInterval(date,nominalStartMin,nominalDuration).some(seg=>holidays.has(iso(seg.date)))){
+                calculationWarnings.add('Review partial book-off on a shift touching a public holiday.');
+              }else{
+                const annual=row.bookOffLeaveType==='annual';
+                const amount=annual?addAnnual(info,leaveHours):round(leaveHours*settings.baseRate);
+                if(!annual)leaveUsage.personal+=leaveHours;
+                breakdown[annual?'annualLeavePay':'sickLeavePay']+=amount;
+                dayGross+=amount;
+                dayHours+=leaveHours;
+              }
+            }
+          }
           let nonPhHours=0,allowanceHours=0;
 
           if(ordinaryFinish>ordinaryStart){
             const shiftType=operationalShiftType(row.code);
-            const hasBuiltInForcedOt=(date.getDay()===5||date.getDay()===6) && (shiftType==='station'||shiftType==='delta');
+            const hasBuiltInForcedOt=!customRoster&&(date.getDay()===5||date.getDay()===6) && (shiftType==='station'||shiftType==='delta');
             const forcedStart=hasBuiltInForcedOt?Math.max(nominalStartMin,nominalFinishAbs-60):nominalFinishAbs;
             const regularFinish=Math.min(ordinaryFinish,forcedStart);
 
@@ -240,7 +260,7 @@ window.PayCalc = (() => {
                 nonPhHours+=h;
                 const dow=seg.date.getDay();if(dow>=1&&dow<=5)allowanceHours+=h;
                 const mult=dow===6?settings.satMult:dow===0?settings.sunMult:settings.wdMult;
-                const amount=h*effectiveBase*mult;baseComponent+=amount;dayGross+=amount;
+              const amount=h*effectiveBase*mult;baseComponent+=amount;dayGross+=amount;
               });
             }
 
@@ -280,17 +300,29 @@ window.PayCalc = (() => {
           breakdown.additionalHoursPay+=additionalPay;
 
           if(nonPhHours>0){
-            if(data.allowance==='Morn/Aft'&&allowanceHours>0){
-              const payableAllowanceHours=Math.ceil(allowanceHours-1e-9);
-              const amount=payableAllowanceHours*payrollRatesForDate(date,settings).maRate;extras+=amount;allowanceDetails.push({type:(mins(nominal[0])<12*60?'Morning allowance':'Afternoon allowance'),date:iso(date),dayIndex:i,code:row.code,hours:payableAllowanceHours,amount});
+            const nominalStart=mins(nominal[0]);
+            let allowance=data.allowance;
+            if(data.admin){
+              if(nominalStart>=1080||nominalStart<240)allowance='Night';
+              else if(nominalStart<=330||nominalFinishAbs>=1110)allowance='Morn/Aft';
             }
-            if(data.allowance==='Night'&&allowanceHours>0){
+            if(eligibleTraining&&allowanceHours>0){
+              const amount=round(allowanceHours*settings.baseRate*15/100);
+              extras+=amount;
+              allowanceDetails.push({type:'Supplementary training penalty',date:iso(date),dayIndex:i,code:row.code,hours:allowanceHours,amount});
+            }
+            if(allowance==='Morn/Aft'&&allowanceHours>0){
+              const payableAllowanceHours=data.admin?allowanceHours:Math.ceil(allowanceHours-1e-9);
+              const morning=data.admin?nominalStart<=330:nominalStart<720;
+              const amount=payableAllowanceHours*payrollRatesForDate(date,settings).maRate;extras+=amount;allowanceDetails.push({type:morning?'Morning allowance':'Afternoon allowance',date:iso(date),dayIndex:i,code:row.code,hours:payableAllowanceHours,amount});
+            }
+            if(allowance==='Night'&&allowanceHours>0){
               const amount=allowanceHours*payrollRatesForDate(date,settings).nightRate;extras+=amount;allowanceDetails.push({type:'Night allowance',date:iso(date),dayIndex:i,code:row.code,hours:allowanceHours,amount});
             }
             const finishDate=addDays(date,mins(nominal[1])<=mins(nominal[0])?1:0);
             const rosterStartIsWeekday=date.getDay()>=1&&date.getDay()<=5;
             const qualifyingEndpoint=rosterStartIsWeekday&&((mins(nominal[0])>=61&&mins(nominal[0])<=239)||(mins(nominal[1])>=61&&mins(nominal[1])<=239&&finishDate.getDay()>=1&&finishDate.getDay()<=5));
-            if(qualifyingEndpoint){
+            if(qualifyingEndpoint&&!data.training){
               const amount=payrollRatesForDate(date,settings).earlyLateRate;extras+=amount;allowanceDetails.push({type:'Early/late shift allowance',date:iso(date),dayIndex:i,code:row.code,hours:1,amount});
             }
             dayGross+=extras;breakdown.extrasPay+=extras;
@@ -300,11 +332,29 @@ window.PayCalc = (() => {
         // Other Line Allowance applies to both ordinary and Picked-up OT shifts.
         // The mutually exchanged / cost-neutral case is the explicit exception.
         const explicitOffline=Boolean(row.offlineShiftCode);
-        const workedRoster=(explicitOffline&&(!row.workedRosterLine||row.workedRosterLine===settings.homeLine))
+        const workedRoster=data.admin?data.line:(explicitOffline&&(!row.workedRosterLine||row.workedRosterLine===settings.homeLine))
           ? data.line
           : (row.workedRosterLine||data.line);
         const isOffline=Boolean(explicitOffline||row.offline||(workedRoster&&workedRoster!==settings.homeLine));
-        if(isOffline&&row.offlineReason!=='cost-neutral'&&data.line!=='LEAVE'){
+        if(eligibleTraining){
+          const enteredKm=row.verifiedTrainingKm;
+          const override=enteredKm!=null&&enteredKm!==''&&Number.isFinite(Number(enteredKm))&&Number(enteredKm)>=0;
+          const distance=override?Number(enteredKm):data.training[designatedLineForRoster(settings.homeLine)];
+          const travelPay=settings.baseRate;
+          extras+=travelPay;
+          dayGross+=travelPay;
+          breakdown.extrasPay+=travelPay;
+          allowanceDetails.push({type:'Training travel allowance',date:iso(date),dayIndex:i,code:row.code,hours:1,amount:travelPay,distanceMissing:distance==null});
+          if(distance==null){
+            calculationWarnings.add('Training mileage distance is unavailable for '+row.code+' from the selected home line.');
+          }else{
+            const rate=vehicleRateForDate(date),amount=round(distance*rate);
+            reimbursements+=amount;
+            breakdown.reimbursements+=amount;
+            reimbursementDetails.push({type:'Training kilometre reimbursement',date:iso(date),dayIndex:i,code:row.code,amount,distance,rate,
+              distanceMeta:{status:override?'Entered verified payroll distance':'Agreement Schedule 2'}});
+          }
+        }else if(!data.training&&isOffline&&row.offlineReason!=='cost-neutral'&&data.line!=='LEAVE'){
           const homeDesignated=designatedLineForRoster(settings.homeLine);
           const workedDesignated=designatedLineForRoster(workedRoster);
           if(homeDesignated&&workedDesignated&&homeDesignated!==workedDesignated){

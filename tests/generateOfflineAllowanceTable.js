@@ -36,7 +36,7 @@ for(const [homeLine,homeLabel] of Object.entries(ROSTER_LINES)){
   const destinations=new Map();
 
   for(const [shiftCode,data] of Object.entries(SHIFT_DATA)){
-    if(data.leaveType)continue;
+    if(data.leaveType||data.training)continue;
     const workedDesignated=DESIGNATED_LINE_BY_ROSTER[data.line]||data.designatedLine||data.line;
     if(homeDesignated===workedDesignated)continue;
     const stationCode=data.stationCode||SHIFT_STATION_CODE_BY_NAME[data.name];

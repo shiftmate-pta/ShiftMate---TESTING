@@ -2876,6 +2876,7 @@ body.modal-open{overflow:hidden!important}
 }
 
 /* -------- Book-off / choice sheets -------- */
+#bookOffSheet{z-index:2147483410!important}
 #bookOffSheet,
 .book-off-sheet,
 .bookoff-sheet{
