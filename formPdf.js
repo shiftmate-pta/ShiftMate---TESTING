@@ -91,28 +91,12 @@
     };
     return {map,addPage,save:async()=>new Blob([await pdf.save()],{type:'application/pdf'})};
   }
-  // Reserve a tab synchronously, while Safari still has the button's user activation.
-  function reservePreview(){
-    const preview=window.open('about:blank','_blank');
-    if(preview){
-      preview.opener=null;
-      preview.document.title='Preparing form';
-      preview.document.body.textContent='Preparing your PDF…';
-    }
-    let url;
-    return {
-      show(blob,filename){
-        url=URL.createObjectURL(blob);
-        if(preview&&!preview.closed)preview.location.replace(url);
-        else{
-          const link=document.createElement('a');link.href=url;link.download=filename;
-          document.body.appendChild(link);link.click();link.remove();
-        }
-        // Give Safari's PDF viewer time to load/share/save the Blob.
-        setTimeout(()=>URL.revokeObjectURL(url),300000);
-      },
-      close(){if(preview&&!preview.closed)preview.close();if(url)URL.revokeObjectURL(url);}
-    };
+  function filename(form,date,fullName){
+    const [year,month,day]=date.split('-');
+    const surname=fullName.trim().split(/\s+/).at(-1)
+      .replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g,'').replace(/\.+$/,'');
+    return `${form}_${day}${month}${year.slice(-2)}_${surname||'Surname'}.pdf`;
   }
-  window.FormPdf={create,reservePreview,leavePosition};
+
+  window.FormPdf={create,leavePosition,filename};
 })();

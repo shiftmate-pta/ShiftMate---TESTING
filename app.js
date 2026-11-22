@@ -684,7 +684,6 @@
     const evidence=$('#leaveEvidence')?.value==='yes';
     const today=new Date();
 
-    const preview=FormPdf.reservePreview();
     try{
       const document=await FormPdf.create('leave');
       const map=document.map;
@@ -713,11 +712,10 @@
         page.check(map.boxes.evidenceYes,evidence);
         page.check(map.boxes.evidenceNo,!evidence);
       }
-      preview.show(await document.save(),`ShiftMate-Leave-${localISO(adjustedStart)}.pdf`);
+      await FormPdfViewer.show(await document.save(),FormPdf.filename('Leave Form',localISO(adjustedEnd),name));
       $('#leaveFormSheet').hidden=true;pendingLeaveDocument=null;
       toast(groups.length>1?`${groups.length} separate leave forms generated`:'Leave form generated');
     }catch(error){
-      preview.close();
       console.error(error);
       toast(error.message||'Could not generate leave PDF');
     }
@@ -2928,7 +2926,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     if(!reqName||!reqService){toast('Add your name and service number in Settings');return}
     if(!partnerName||!partnerService){toast('Enter the replacement employee details');return}
 
-    let entries=[];
+    let entries=[],filenameDate;
     if(swapMode==='multi'){
       if(!swapState.requestDates.length){toast('Add at least one swap date');return}
       const cards=$$('#swapMultiEntries .swap-entry-card');
@@ -2945,6 +2943,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       const rd=swapDateValue('#swapRequestDate'),pd=swapDateValue('#swapPartnerDate');
       if(!rd||!pd){toast('Select both dates');return}
       if(swapMode==='roster'){
+        filenameDate=rd;
         entries=[{request:{date:null,shift:swapFmtPE(rd),start:'',finish:''},partner:{date:null,shift:swapFmtPE(pd),start:'',finish:''}}];
       }else{
         entries=[{
@@ -2959,7 +2958,6 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     const neutralCost=Boolean($('#swapNeutralCost')?.checked);
     const others=String($('#swapOthers')?.value||'').trim();
     const todayText=swapFmtDate(new Date());
-    const preview=FormPdf.reservePreview();
     try{
       const document=await FormPdf.create('swap');
       const map=document.map;
@@ -2993,10 +2991,9 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
           await page.text(fields.date,todayText);
         }
       }
-      preview.show(await document.save(),`ShiftMate-Shift-Swap-${localISO(entries[0].request.date||new Date())}.pdf`);
+      await FormPdfViewer.show(await document.save(),FormPdf.filename('Shift Swap Form',localISO(filenameDate||entries[0].request.date),partnerName));
       toast(entries.length>1?`${entries.length} shift swap forms generated`:'Shift swap form generated');
     }catch(error){
-      preview.close();
       console.error(error);
       toast(error.message||'Could not generate shift swap form');
     }

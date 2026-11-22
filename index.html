@@ -8,11 +8,12 @@
 <meta content="ShiftMate TEST" name="apple-mobile-web-app-title"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <title>ShiftMate TEST</title>
-<link href="styles.css?v=2.8.0-partner" rel="stylesheet"/>
+<link href="styles.css?v=2.8.1-pdf-viewer-test" rel="stylesheet"/>
 <link href="partnerRoster.css?v=2.8.0-partner" rel="stylesheet"/>
 <link href="apple-touch-icon.png?v=2.8.0-partner" rel="apple-touch-icon"/>
 <link href="manifest.json?v=2.8.0-partner" rel="manifest"/>
 <meta content="#05090b" name="theme-color"/>
+<link href="pdfViewer.css?v=2" rel="stylesheet"/>
 </head>
 <body>
 <div class="test-build-badge">TEST CLEANUP</div>
@@ -321,7 +322,7 @@
 </details>
 <details class="settings-section">
 <summary><span>About</span><small>ShiftMate app information</small></summary>
-<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.8.0 PARTNER ROSTER TEST</div>
+<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.8.1 PDF VIEWER TEST</div>
 </details>
 <div class="action-grid settings-actions">
 <button class="primary" id="saveCurrent">Save settings</button>
@@ -435,9 +436,24 @@
 <script src="storage.js?v=2.8.0-partner"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
 <script src="formPdfFields.js?v=2"></script>
-<script src="formPdf.js?v=2"></script>
+<script src="formPdf.js?v=6"></script>
+<dialog id="pdfViewer" aria-labelledby="pdfViewerName">
+  <header>
+    <h2 id="pdfViewerName"></h2>
+    <div id="pdfViewerControls">
+      <button type="button" id="pdfViewerShare">Share PDF</button>
+      <button type="button" id="pdfViewerSave">Save</button>
+      <button type="button" id="pdfViewerPrint">Print</button>
+      <button type="button" id="pdfViewerClose" autofocus>Close</button>
+    </div>
+    <div id="pdfViewerStatus" role="status"></div>
+  </header>
+  <div id="pdfViewerPages" tabindex="0" aria-label="PDF pages"></div>
+</dialog>
+<div id="pdfPrintPages" aria-hidden="true"></div>
+<script src="pdfViewer.js?v=2"></script>
 <script src="partnerRoster.js?v=2.8.0-partner"></script>
 <script src="partnerRosterUI.js?v=2.8.0-partner"></script>
-<script src="app.js?v=2.8.0-partner"></script>
+<script src="app.js?v=2.8.1-pdf-viewer-test"></script>
 </body>
 </html>

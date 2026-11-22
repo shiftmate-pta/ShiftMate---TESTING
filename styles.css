@@ -3135,3 +3135,10 @@ input[type="time"]::-webkit-date-and-time-value{
 
 /* Shift Swap calendar and multi-date controls */
 .swap-calendar-wrap{margin:12px 0}.swap-calendar{max-height:310px;overflow:auto;border:1px solid var(--border,#ddd);border-radius:14px;padding:8px}.swap-calendar .calendar-month-block{margin-bottom:10px}.swap-calendar .calendar-day{min-height:48px}.swap-calendar .calendar-day strong{font-size:.72rem}.swap-multi-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0}.swap-entry-card{border:1px solid var(--border,#ddd);border-radius:14px;padding:12px;margin:10px 0}.swap-entry-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.swap-entry-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}.swap-roster-note{padding:10px 12px;border-radius:12px;background:var(--surface-2,#f5f5f5);margin:10px 0}.swap-entry-card input,.swap-entry-card select{width:100%}@media(max-width:650px){.swap-entry-columns{grid-template-columns:1fr}.swap-multi-head{align-items:flex-start;flex-direction:column}}
+
+/* Keep touch form controls readable without triggering iOS focus zoom. */
+@media (any-pointer: coarse) {
+  body :is(input:not(:where([type=button], [type=checkbox], [type=file], [type=hidden], [type=image], [type=radio], [type=range], [type=reset], [type=submit], [type=color])), select, textarea, .calendar-partner-input) {
+    font-size: 16px !important;
+  }
+}

@@ -1,0 +1,89 @@
+#pdfViewer {
+  width: min(100%, 64rem);
+  max-width: 100%;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100%;
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: #eef0f2;
+  color: #16202a;
+}
+
+#pdfViewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+#pdfViewer::backdrop { background: #16202abb; }
+#pdfViewer header {
+  flex: none;
+  padding: max(.6rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) .55rem max(.75rem, env(safe-area-inset-left));
+  background: #fff;
+  border-bottom: 1px solid #c7ced5;
+}
+
+#pdfViewerName {
+  margin: 0 0 .35rem;
+  font-size: .9rem;
+  overflow-wrap: anywhere;
+}
+
+#pdfViewerControls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .35rem;
+}
+
+#pdfViewerControls button {
+  min-height: 44px;
+  padding: .25rem;
+  border: 1px solid #a2afbb;
+  border-radius: .45rem;
+  background: #f6f8fa;
+  color: #16202a;
+  font: inherit;
+}
+
+#pdfViewerControls button:focus-visible { outline: 2px solid #145fa0; }
+#pdfViewerControls #pdfViewerShare {
+  background: #145a86;
+  border-color: #145a86;
+  color: white;
+  font-weight: 700;
+}
+#pdfViewerStatus:not(:empty) { margin-top: .35rem; font-size: .85rem; }
+#pdfViewerPages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  padding: .5rem .5rem max(.5rem, env(safe-area-inset-bottom));
+}
+
+#pdfViewerPages canvas {
+  display: block;
+  width: calc(min(100%, 50rem) * var(--pdf-zoom, 1));
+  max-width: none;
+  height: auto;
+  margin: 0 auto .5rem;
+  background: white;
+}
+
+#pdfPrintPages { display: none; }
+
+@media print {
+  @page shiftmateForm { size: A4; margin: 0; }
+  body.printing-shiftmate-pdf > :not(#pdfPrintPages) { display: none !important; }
+  body.printing-shiftmate-pdf #pdfPrintPages { display: block; }
+  body.printing-shiftmate-pdf #pdfPrintPages canvas {
+    page: shiftmateForm;
+    display: block;
+    width: 210mm;
+    height: 297mm;
+    break-after: page;
+  }
+  body.printing-shiftmate-pdf #pdfPrintPages canvas:last-child { break-after: auto; }
+}
