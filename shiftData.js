@@ -21,7 +21,10 @@ window.LINE_ALLOWANCE_DISTANCE_META = {
   provisional:{source:'OSRM road route using OpenStreetMap station coordinates, calculated 10 October 2026',status:'provisional pending an agreed updated Schedule 2'}
 };
 window.LINE_ALLOWANCE_VALIDATED_KM = {
-  "ARMADALE":{"EB":54.3}
+  "ARMADALE":{"EB":54.3,"EP":10.7}
+};
+window.LINE_ALLOWANCE_VALIDATED_META = {
+  EP:{source:'15 October 2026 payroll, Burswood to East Perth Station',status:'Payroll-confirmed route'}
 };
 window.SHIFT_STATION_CODE_BY_NAME = {
   'Byford':'BYF',
@@ -46,16 +49,27 @@ window.SHIFT_DATA = {"10":{"name":"Daglish","line":"FREMANTLE","designatedLine":
   // Midland has no listed Guildford training distance.
   const trainingTimes=times('09:00','19:00');
   const adminTimes=times('09:00','17:00');
+  const shifts=window.SHIFT_DATA;
+  const perthNames={
+    MCI:'McIver',CBR:'Claisebrook',PA:'Perth Afternoon',PD:'Perth Assist Day',
+    PDT:'Perth Day Tango',PRD:'Perth Roaming Day',PM:'Perth Morning',PN:'Perth Assist Afternoon',
+    SA:'Standby Afternoon',SM:'Standby Morning',UD:'Underground Day',UN:'Underground Afternoon'
+  };
+  for(const [code,name] of Object.entries(perthNames))shifts[code].name=name;
   Object.assign(window.SHIFT_DATA,{
-    SAFEK:{name:'Kwinana requalification',times:trainingTimes,training:{
+    SAFEK:{name:'Kwinana Training',times:trainingTimes,training:{
       JOONDALUP:83.4,MIDLAND:85.6,FREMANTLE:76,ARMADALE:76.4,
       SOUTHERN_MANDURAH:16,PERTH:78.8,NORTHERN_MANDURAH:39.4,AIRPORT:102.2
     }},
-    BH:{name:'Guildford requalification',times:trainingTimes,training:{
+    BH:{name:'Guildford Training',times:trainingTimes,training:{
       JOONDALUP:34.8,FREMANTLE:35.2,ARMADALE:22.6,SOUTHERN_MANDURAH:87.8,
       PERTH:26.8,NORTHERN_MANDURAH:47,AIRPORT:12.7
     }},
     'AD-ARM':{name:'Armadale administration',line:'ARMADALE',stationCode:'AR',admin:true,times:adminTimes},
-    'AD-PER':{name:'Perth administration',line:'PERTH',stationCode:'PC',admin:true,times:adminTimes}
+    'AD-PER':{name:'Perth administration',line:'PERTH',stationCode:'PC',admin:true,times:adminTimes},
+    // East Perth is on the Midland line under clause 5.2.1(c).
+    'AD-CMR':{name:'CMR',location:'East Perth Station',line:'MIDLAND',stationCode:'EP',admin:true,times:adminTimes},
+    'SA-ARM':{...shifts.SA,name:'Standby Afternoon — Armadale',line:'ARMADALE',designatedLine:'ARMADALE',stationCode:'AR',standby:true},
+    'SM-ARM':{...shifts.SM,name:'Standby Morning — Armadale',line:'ARMADALE',designatedLine:'ARMADALE',stationCode:'AR',standby:true}
   });
 })();

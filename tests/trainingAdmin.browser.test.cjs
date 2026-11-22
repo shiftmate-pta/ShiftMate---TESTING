@@ -18,7 +18,7 @@ let server,browser;
   const fixture={startDate:'2026-10-08',days:[{},{
     code:'PER-ADMIN',offlineShiftCode:'PER-ADMIN',workedRosterLine:'PERTH',
     type:'Rostered',start:'09:00',finish:'16:00',entered:true
-  }],settings:{classification:'STO3',homeLine:'ARMADALE'}};
+  },{code:'SA',workedRosterLine:'ARMADALE',type:'Rostered',entered:true}],settings:{classification:'STO3',homeLine:'ARMADALE'}};
   const historical={id:'cycle-2026-09-20',startDate:'2026-09-20',settings:fixture.settings,days:[{code:'A/L',leaveHours:10}]};
   const legacy={id:'cycle-2026-10-01',startDate:'2026-10-01',settings:fixture.settings,
     days:[{code:'ARM-ADMIN',workedRosterLine:'ARMADALE',start:'09:00',finish:'17:00'}]};
@@ -39,6 +39,11 @@ let server,browser;
   }),{...legacy.days[0],code:'AD-ARM'});
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('ptaV2Cycles'))[1].days[0].code),'ARM-ADMIN');
   assert.equal(await selector.locator('option[value="ARM-ADMIN"]').count(),0);
+  assert.equal(await page.locator('.day-card').nth(2).locator('.shift-code').inputValue(),'SA');
+  assert.equal(await selector.locator('option[value="SA"]').count(),0);
+  for(const code of ['SA-ARM','SM-ARM'])assert.equal(await selector.locator(`option[value="${code}"]`).count(),1);
+  assert.equal(await selector.locator('option[value="SAFEK"]').textContent(),'Kwinana Training');
+  assert.equal(await selector.locator('option[value="BH"]').textContent(),'Guildford Training');
   await selector.selectOption('SAFEK');
   await page.waitForFunction(()=>document.querySelector('.day-card .finish-time').value==='19:00');
   await day.locator('.details-button').click();
@@ -70,6 +75,29 @@ let server,browser;
   await page.locator('.posted-finish:visible').fill('16:00');
   await page.locator('.posted-finish:visible').dispatchEvent('change');
   assert.equal(await page.locator('.finish-time:visible').inputValue(),'16:00');
+  await page.locator('.roster-detail-close:visible').click();
+  await selector.selectOption('OFFLINE');
+  const remote=page.locator('.offline-shift-code:visible');
+  const expected={
+    MCI:'McIver',CBR:'Claisebrook',PA:'Perth Afternoon',PD:'Perth Assist Day',
+    PDT:'Perth Day Tango',PRD:'Perth Roaming Day',PM:'Perth Morning',PN:'Perth Assist Afternoon',
+    SA:'Standby Afternoon',SM:'Standby Morning',UD:'Underground Day',UN:'Underground Afternoon'
+  };
+  for(const [code,label] of Object.entries(expected)){
+    assert.equal(await remote.locator(`option[value="${code}"]`).textContent(),label);
+  }
+  await remote.selectOption('AD-CMR');
+  await page.waitForFunction(()=>document.querySelector('.worked-line').value==='MIDLAND'||
+    document.querySelector('#shiftDetailsPortal .worked-line')?.value==='MIDLAND');
+  await page.locator('.finish-time:visible').fill('18:00');
+  await page.locator('.roster-detail-close:visible').click();
+  await page.locator('#rosterSaveCycle').click();
+  assert.equal((await read()).code,'AD-CMR');
+  assert.equal((await read()).workedRosterLine,'MIDLAND');
+  assert.equal((await read()).finish,'18:00');
+  await day.locator('.ot-toggle').click();
+  await page.locator('#rosterSaveCycle').click();
+  assert.equal((await read()).type,'Picked-up OT');
   assert.deepEqual(errors,[]);
   console.log('Mobile training and ADMIN entry, persistence and offline reload passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server?.close();});

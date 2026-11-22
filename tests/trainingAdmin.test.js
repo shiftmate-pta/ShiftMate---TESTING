@@ -6,6 +6,7 @@ for(const file of ['agreementData.js','shiftData.js','annualLeaveLoading.js','pa
   vm.runInContext(fs.readFileSync(file,'utf8'),context);
 }
 const {PayCalc}=context.window;
+const shifts=context.window.SHIFT_DATA;
 const settings={classification:'STO3',classificationOverride:true,baseRate:44.37,homeLine:'ARMADALE',
   wdMult:1,satMult:1.5,sunMult:2,addHoursMult:1.84,weekendOtMult:2};
 const calculate=(row,overrides={},date='2026-10-08')=>
@@ -67,4 +68,34 @@ for(const leaveType of ['annual','sick']){
 const afternoon=calculate({code:'AD-ARM',start:'11:00',finish:'19:00',scheduledStart:'11:00',scheduledFinish:'19:00'});
 assert.ok(allowance(afternoon,'Afternoon allowance'));
 assert.equal(allowance(afternoon,'Supplementary training penalty'),undefined);
+assert.equal(shifts.SAFEK.name,'Kwinana Training');
+assert.equal(shifts.BH.name,'Guildford Training');
+assert.equal(shifts['AD-CMR'].location,'East Perth Station');
+assert.equal(shifts['AD-CMR'].line,'MIDLAND');
+assert.equal(shifts['AD-PER'].stationCode,'PC');
+for(const [type,expected] of [['Rostered',8*44.37],['Picked-up OT',8*44.37*1.84]]){
+  const cmr=calculate({code:'AD-CMR',type}, {}, '2026-10-15');
+  close(cmr.breakdown[type==='Rostered'?'workedPay':'additionalHoursPay'],expected);
+  assert.equal(cmr.allowanceDetails.length,1);
+  close(allowance(cmr,'Other line allowance').amount,44.37);
+  close(cmr.reimbursementDetails[0].distance,10.7);
+  close(Math.round(cmr.reimbursements*100)/100,10.49);
+}
+const updatedCmr=calculate({code:'AD-CMR',scheduledStart:'08:00',scheduledFinish:'16:00',start:'08:00',finish:'17:00'});
+close(updatedCmr.breakdown.additionalHoursPay,44.37*1.84);
+assert.equal(calculate({code:'AD-CMR'},{homeLine:'MIDLAND'}).allowanceDetails.length,0);
+assert.equal(calculate({code:'AD-CMR'},{homeLine:'FREMANTLE'}).reimbursements,0);
+
+for(const code of ['SA','SM']){
+  const perth=calculate({code},{homeLine:'PERTH'},'2026-10-09');
+  const arm=calculate({code:code+'-ARM'},{},'2026-10-09');
+  close(arm.hours,perth.hours);
+  close(arm.breakdown.workedPay,perth.breakdown.workedPay);
+  close(arm.breakdown.additionalHoursPay,perth.breakdown.additionalHoursPay);
+  assert.equal(arm.reimbursements,0);
+  const awayArm=calculate({code:code+'-ARM',type:'Picked-up OT'},{homeLine:'PERTH'});
+  assert.equal(awayArm.reimbursementDetails[0].distance,75.8);
+  close(allowance(awayArm,'Other line allowance').amount,44.37);
+}
+assert.equal(calculate({code:'SA',workedRosterLine:'ARMADALE'}).reimbursements,0);
 console.log('Training and administration pay checks passed');

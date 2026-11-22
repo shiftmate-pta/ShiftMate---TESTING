@@ -77,7 +77,8 @@ window.PayCalc = (() => {
     const home=designatedLineForRoster(homeRoster),worked=designatedLineForRoster(workedRoster);
     const key=home==='NORTHERN_MANDURAH'?(worked==='SOUTHERN_MANDURAH'?'NORTHERN_MANDURAH_AUBINGROVE':'NORTHERN_MANDURAH_BULLCREEK'):home;
     const kind=Object.hasOwn((window.LINE_ALLOWANCE_KM||{})[key]||{},stationCode)?'agreement':Object.hasOwn((window.LINE_ALLOWANCE_VALIDATED_KM||{})[key]||{},stationCode)?'validated':'provisional';
-    return (window.LINE_ALLOWANCE_DISTANCE_META||{})[kind]||{};
+    return (kind==='validated'&&window.LINE_ALLOWANCE_VALIDATED_META?.[stationCode])
+      ||(window.LINE_ALLOWANCE_DISTANCE_META||{})[kind]||{};
   };
   // Circular 6/2026 confirms the metropolitan rate from 1 July 2026.
   const vehicleRateForDate=date=>iso(date)>='2026-07-01'?.98:.895;
@@ -248,7 +249,7 @@ window.PayCalc = (() => {
           let nonPhHours=0,allowanceHours=0;
 
           if(ordinaryFinish>ordinaryStart){
-            const shiftType=operationalShiftType(row.code);
+            const shiftType=data.standby?'station':operationalShiftType(row.code);
             const hasBuiltInForcedOt=!customRoster&&(date.getDay()===5||date.getDay()===6) && (shiftType==='station'||shiftType==='delta');
             const forcedStart=hasBuiltInForcedOt?Math.max(nominalStartMin,nominalFinishAbs-60):nominalFinishAbs;
             const regularFinish=Math.min(ordinaryFinish,forcedStart);
@@ -332,7 +333,7 @@ window.PayCalc = (() => {
         // Other Line Allowance applies to both ordinary and Picked-up OT shifts.
         // The mutually exchanged / cost-neutral case is the explicit exception.
         const explicitOffline=Boolean(row.offlineShiftCode);
-        const workedRoster=data.admin?data.line:(explicitOffline&&(!row.workedRosterLine||row.workedRosterLine===settings.homeLine))
+        const workedRoster=data.admin||data.standby?data.line:(explicitOffline&&(!row.workedRosterLine||row.workedRosterLine===settings.homeLine))
           ? data.line
           : (row.workedRosterLine||data.line);
         const isOffline=Boolean(explicitOffline||row.offline||(workedRoster&&workedRoster!==settings.homeLine));
@@ -360,6 +361,9 @@ window.PayCalc = (() => {
           if(homeDesignated&&workedDesignated&&homeDesignated!==workedDesignated){
             const stationCode=data.stationCode||(window.SHIFT_STATION_CODE_BY_NAME||{})[data.name]||null;
             const distance=lineAllowanceDistance(settings.homeLine,workedRoster,stationCode);
+            if(stationCode==='EP'&&distance==null){
+              calculationWarnings.add('CMR mileage to East Perth Station is unverified for the selected home line.');
+            }
             const travelPay=settings.baseRate;
             extras+=travelPay;
             dayGross+=travelPay;

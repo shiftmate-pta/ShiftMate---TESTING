@@ -1072,8 +1072,7 @@
   }
   const leaveOrder=['A/L','Sick','LSL','LWOP'];
   const rosterLineOptions=(selected='')=>Object.entries(window.ROSTER_LINES||{}).map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
-  const shiftDisplayLabels={CBR:'Claisebrook',MCN:'McIver',EQA:'Elizabeth Quay Arvo',EQM:'Elizabeth Quay Morn'};
-const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth Assist Day',PM:'Perth Morning',PRD:'Perth Roaming Day',UD:'Underground Day',UN:'Underground Arvo'};
+  const shiftDisplayLabels={EQA:'Elizabeth Quay Arvo',EQM:'Elizabeth Quay Morn'};
   const shiftOptionLabel=code=>{
     if(!code)return 'Off / no shift';
     const c=String(code).toUpperCase();
@@ -1085,13 +1084,12 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
       return `Delta ${n} ${c.endsWith('M')?'Morning':'Afternoon'}`;
     }
     if(/^\d+$/.test(c))return `Tango ${c}`;
-    if(c==='SA')return 'Standby';
     if(shiftDisplayLabels[c])return shiftDisplayLabels[c];
-
-    if(perthShiftLabels[c])return perthShiftLabels[c];
     return SHIFT_DATA[code]?.name||code;
   };
   const OFFLINE_CODE='OFFLINE';
+  // Keep legacy generic SA available where no line-specific replacement is verified.
+  const allowsGenericStandby=(code,line,selected)=>code==='SA'&&(line!=='ARMADALE'||selected==='SA');
   const allNetworkShiftOptions=(selected='',date=null)=>{
     const group=date?PayCalc.dayGroup(date.getDay()):null;
     const codes=Object.keys(SHIFT_DATA||{}).filter(code=>{
@@ -1119,8 +1117,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     const normal=Object.keys(SHIFT_DATA)
       .filter(code=>{
         const data=SHIFT_DATA[code];
-        // Standby is available on every home/worked line. Its operational base is the selected line's home station.
-        if(code!=='SA'&&!data.training&&data.line!==line)return false;
+        if(!allowsGenericStandby(code,line,selected)&&!data.training&&data.line!==line)return false;
         if(!group)return true;
         const times=data.times?.[group]||['',''];
         return Boolean(times[0]&&times[1]);
@@ -1229,6 +1226,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     return `${String(Math.floor(x/60)).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`;
   };
   const operationalShiftType=code=>{
+    if(SHIFT_DATA[code]?.standby)return 'station';
     if(SHIFT_DATA[code]?.training||SHIFT_DATA[code]?.admin)return 'other';
     const c=String(code||'').trim().toUpperCase();
     if(/^\d+[AM]$/.test(c))return 'delta';
@@ -1360,7 +1358,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
     if(force||!start.value||!finish.value){start.value=times[0];finish.value=times[1]}
     if(type.value==='Off') type.value='Rostered';
     if(data.autoHigherDuties) hd.value='yes';
-    label.textContent=data.leaveType?`${data.name} • ${data.defaultHours||10} paid hours`:`${data.name} • ${start.value}–${finish.value}`;
+    label.textContent=data.leaveType?`${data.name} • ${data.defaultHours||10} paid hours`:`${data.name} • ${data.location?data.location+' • ':''}${start.value}–${finish.value}`;
     const selectedData=SHIFT_DATA[card.querySelector('.shift-code')?.value];
     const leaveField=rosterControl(card,'.leave-hours-field');
     const annualPartField=rosterControl(card,'.annual-leave-portion-field');
@@ -1755,7 +1753,7 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
         if(variation.extension>0)bits.push(`${variation.extension.toFixed(2)}h extension OT`);
         if(variation.forced>0)bits.push(`${variation.forced.toFixed(2)}h forced OT`);
         const extra=bits.length?` • ${bits.join(' • ')}`:'';
-        card.querySelector('.shift-time').textContent=data?`${data.name} • ${st}–${fn}${extra}`:`${st}–${fn}`;
+        card.querySelector('.shift-time').textContent=data?`${data.name} • ${data.location?data.location+' • ':''}${st}–${fn}${extra}`:`${st}–${fn}`;
         card.dataset.entered='true';updateRosterCardState(card);syncCurrentFromUI();recalculate();
       };
       card.querySelector('.start-time').oninput=manualTime;
@@ -2847,19 +2845,19 @@ const perthShiftLabels={PN:'Perth Assist Arvo',PA:'Perth Afternoon',PD:'Perth As
   const swapRosterRow=date=>date?rosterTimeline().get(localISO(date))?.row:null;
   const swapEffectiveCode=row=>row?.offlineShiftCode||row?.code||'';
   const swapTimes=(date,code)=>{const data=SHIFT_DATA[code],t=data?.times?.[date?PayCalc.dayGroup(date.getDay()):0]||['',''];return t};
-  const swapCodesForDate=(date,line='')=>{
+  const swapCodesForDate=(date,line='',selected='')=>{
     const group=date?PayCalc.dayGroup(date.getDay()):null;
     return Object.keys(SHIFT_DATA).filter(code=>{
       const data=SHIFT_DATA[code]; if(!data||data.leaveType)return false;
-      if(line&&code!=='SA'&&data.line!==line)return false;
+      if(line&&!allowsGenericStandby(code,line,selected)&&data.line!==line)return false;
       if(!group)return true;
       const t=data.times?.[group]||['','']; return Boolean(t[0]&&t[1]);
     }).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   };
   const populateSwapShift=(select,date,line,preferred='')=>{
     if(!select)return;
-    const codes=swapCodesForDate(date,line);
     const rosterCode=swapEffectiveCode(swapRosterRow(date));
+    const codes=swapCodesForDate(date,line,preferred||rosterCode);
     select.innerHTML=codes.map(code=>`<option value="${code}">${shiftOptionLabel(code)}</option>`).join('');
     const wanted=preferred&&codes.includes(preferred)?preferred:(rosterCode&&codes.includes(rosterCode)?rosterCode:(codes[0]||''));
     select.value=wanted;
