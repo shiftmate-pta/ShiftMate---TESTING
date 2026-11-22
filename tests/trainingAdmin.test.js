@@ -14,12 +14,14 @@ const calculate=(row,overrides={},date='2026-10-08')=>
 const close=(actual,expected,tolerance=.005)=>assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} != ${expected}`);
 const allowance=(result,type)=>result.allowanceDetails.find(item=>item.type===type);
 for(const [code,distance] of [['SAFEK',76.4],['BH',22.6]]){
-  const result=calculate({code});
+  const result=calculate({code},{},'2026-10-28');
   close(result.hours,10);
   close(result.breakdown.workedPay,443.70);
   close(allowance(result,'Supplementary training penalty').amount,66.56);
   close(allowance(result,'Training travel allowance').amount,44.37);
-  assert.equal(result.allowanceDetails.length,2);
+  close(allowance(result,'Afternoon allowance').amount,48.70);
+  close(result.gross,603.33);
+  assert.equal(result.allowanceDetails.length,3);
   assert.equal(result.reimbursementDetails[0].distance,distance);
   assert.equal(result.reimbursementDetails[0].rate,.98);
 }
@@ -37,7 +39,9 @@ close(allowance(october,'Supplementary training penalty').hours,460/60);
 close(allowance(october,'Training travel allowance').amount,44.37);
 close(october.reimbursements,79.18);
 close(october.hours,460/60+2.33);
-assert.equal(october.allowanceDetails.length,2);
+close(allowance(october,'Afternoon allowance').hours,460/60);
+close(allowance(october,'Afternoon allowance').amount,460/60*4.87);
+assert.equal(october.allowanceDetails.length,3);
 assert.equal(october.reimbursementDetails.length,1);
 assert.equal(bookOff.verifiedTrainingKm,80.8);
 
@@ -53,7 +57,18 @@ close(admin.breakdown.workedPay,354.96);
 assert.equal(admin.allowanceDetails.length,0);
 const away=calculate({code:'AD-PER',workedRosterLine:'ARMADALE'});
 close(allowance(away,'Other line allowance').amount,44.37);
-assert.equal(away.reimbursementDetails[0].distance,11);
+assert.equal(away.reimbursementDetails[0].distance,10.7);
+for(const date of ['2026-10-19','2026-10-20','2026-10-29','2026-10-30']){
+  const perth=calculate({code:'PD'},{},date);
+  const mileage=perth.reimbursementDetails[0];
+  assert.equal(mileage.distance,10.7);
+  assert.equal(mileage.rate,.98);
+  close(mileage.amount,10.49);
+  close(allowance(perth,'Other line allowance').amount,44.37);
+}
+assert.equal(calculate({code:'PD'},{homeLine:'MIDLAND'}).reimbursementDetails[0].distance,8.2);
+assert.equal(calculate({code:'PS'}).reimbursementDetails[0].distance,4.2);
+assert.equal(calculate({code:'BH',scheduledStart:'07:00',scheduledFinish:'17:00',start:'07:00',finish:'17:00'}).allowanceDetails.some(item=>item.type==='Afternoon allowance'),false);
 assert.equal(calculate({code:'AD-PER',offlineReason:'cost-neutral'}).reimbursements,0);
 const adminOt=calculate({code:'AD-ARM',start:'08:00',finish:'18:00'});
 close(adminOt.breakdown.additionalHoursPay,2*44.37*1.84);

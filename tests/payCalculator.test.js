@@ -46,13 +46,13 @@ assert.equal(costNeutral.reimbursements,0,'cost-neutral exchange has no reimburs
 assert.equal(costNeutral.allowanceDetails.some(item=>item.type==='Other line allowance'),false,'cost-neutral exchange has no other-line payment');
 
 const knownRoute=PayCalc.calculate({startDate:'2026-09-07',days:[day('30','Picked-up OT','14:45','00:45',true,'PERTH')],settings:{...settings,lease:0,postTax:0}});
-close(knownRoute.reimbursements,10.78,'station-matrix reimbursement uses the 2026 rate');
+close(knownRoute.reimbursements,10.7*.98,'station-matrix reimbursement uses the 2026 rate');
 assert.equal(context.window.LINE_ALLOWANCE_KM.ARMADALE.PC,11,'official route unchanged');
 assert.equal(context.window.LINE_ALLOWANCE_PROVISIONAL_KM.ARMADALE.EB,55,'road estimate retained behind payroll-confirmed route');
 assert.equal(context.window.LINE_ALLOWANCE_PROVISIONAL_KM.ELLENBROOK.BUR,22.1,'reverse arrangement unchanged');
 const otherStation=PayCalc.calculate({startDate:'2026-09-13',days:[day('82','Picked-up OT','14:30','00:30',true,'ELLENBROOK')],settings});
 if(otherStation.reimbursementDetails.length)assert.notEqual(otherStation.reimbursementDetails[0].distance,54.3,'54.3 is not a whole-line override');
 const oldRate=PayCalc.calculate({startDate:'2026-06-01',days:[day('30','Picked-up OT','14:45','00:45',true,'PERTH')],settings:{...settings,lease:0,postTax:0}});
-close(oldRate.reimbursements,9.845,'pre-July-2026 reimbursement keeps the prior rate');
+close(oldRate.reimbursements,10.7*.895,'pre-July-2026 reimbursement keeps the prior rate');
 
 console.log('payCalculator regression tests passed');

@@ -21,9 +21,10 @@ window.LINE_ALLOWANCE_DISTANCE_META = {
   provisional:{source:'OSRM road route using OpenStreetMap station coordinates, calculated 10 October 2026',status:'provisional pending an agreed updated Schedule 2'}
 };
 window.LINE_ALLOWANCE_VALIDATED_KM = {
-  "ARMADALE":{"EB":54.3,"EP":10.7}
+  "ARMADALE":{"EB":54.3,"EP":10.7,"PC":10.7}
 };
 window.LINE_ALLOWANCE_VALIDATED_META = {
+  PC:{source:'October 2026 payroll, Burswood to Perth',status:'Payroll-confirmed route'},
   EP:{source:'15 October 2026 payroll, Burswood to East Perth Station',status:'Payroll-confirmed route'}
 };
 window.SHIFT_STATION_CODE_BY_NAME = {

@@ -64,10 +64,10 @@ window.PayCalc = (() => {
     if(!home||!worked||home===worked)return 0;
     let matrixKey=home;
     if(home==='NORTHERN_MANDURAH')matrixKey=worked==='SOUTHERN_MANDURAH'?'NORTHERN_MANDURAH_AUBINGROVE':'NORTHERN_MANDURAH_BULLCREEK';
-    const table=(window.LINE_ALLOWANCE_KM||{})[matrixKey];
-    if(stationCode&&table&&Object.prototype.hasOwnProperty.call(table,stationCode))return Number(table[stationCode]);
     const validatedTable=(window.LINE_ALLOWANCE_VALIDATED_KM||{})[matrixKey];
     if(stationCode&&validatedTable&&Object.prototype.hasOwnProperty.call(validatedTable,stationCode))return Number(validatedTable[stationCode]);
+    const table=(window.LINE_ALLOWANCE_KM||{})[matrixKey];
+    if(stationCode&&table&&Object.prototype.hasOwnProperty.call(table,stationCode))return Number(table[stationCode]);
     const provisionalTable=(window.LINE_ALLOWANCE_PROVISIONAL_KM||{})[matrixKey];
     return stationCode&&provisionalTable&&Object.prototype.hasOwnProperty.call(provisionalTable,stationCode)
       ? Number(provisionalTable[stationCode])
@@ -76,7 +76,7 @@ window.PayCalc = (() => {
   const distanceMeta=(homeRoster,workedRoster,stationCode)=>{
     const home=designatedLineForRoster(homeRoster),worked=designatedLineForRoster(workedRoster);
     const key=home==='NORTHERN_MANDURAH'?(worked==='SOUTHERN_MANDURAH'?'NORTHERN_MANDURAH_AUBINGROVE':'NORTHERN_MANDURAH_BULLCREEK'):home;
-    const kind=Object.hasOwn((window.LINE_ALLOWANCE_KM||{})[key]||{},stationCode)?'agreement':Object.hasOwn((window.LINE_ALLOWANCE_VALIDATED_KM||{})[key]||{},stationCode)?'validated':'provisional';
+    const kind=Object.hasOwn((window.LINE_ALLOWANCE_VALIDATED_KM||{})[key]||{},stationCode)?'validated':Object.hasOwn((window.LINE_ALLOWANCE_KM||{})[key]||{},stationCode)?'agreement':'provisional';
     return (kind==='validated'&&window.LINE_ALLOWANCE_VALIDATED_META?.[stationCode])
       ||(window.LINE_ALLOWANCE_DISTANCE_META||{})[kind]||{};
   };
@@ -303,7 +303,7 @@ window.PayCalc = (() => {
           if(nonPhHours>0){
             const nominalStart=mins(nominal[0]);
             let allowance=data.allowance;
-            if(data.admin){
+            if(data.admin||eligibleTraining){
               if(nominalStart>=1080||nominalStart<240)allowance='Night';
               else if(nominalStart<=330||nominalFinishAbs>=1110)allowance='Morn/Aft';
             }
@@ -313,8 +313,8 @@ window.PayCalc = (() => {
               allowanceDetails.push({type:'Supplementary training penalty',date:iso(date),dayIndex:i,code:row.code,hours:allowanceHours,amount});
             }
             if(allowance==='Morn/Aft'&&allowanceHours>0){
-              const payableAllowanceHours=data.admin?allowanceHours:Math.ceil(allowanceHours-1e-9);
-              const morning=data.admin?nominalStart<=330:nominalStart<720;
+              const payableAllowanceHours=customRoster?allowanceHours:Math.ceil(allowanceHours-1e-9);
+              const morning=customRoster?nominalStart<=330:nominalStart<720;
               const amount=payableAllowanceHours*payrollRatesForDate(date,settings).maRate;extras+=amount;allowanceDetails.push({type:morning?'Morning allowance':'Afternoon allowance',date:iso(date),dayIndex:i,code:row.code,hours:payableAllowanceHours,amount});
             }
             if(allowance==='Night'&&allowanceHours>0){

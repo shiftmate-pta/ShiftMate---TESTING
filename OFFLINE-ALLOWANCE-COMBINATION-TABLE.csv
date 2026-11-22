@@ -3,6 +3,7 @@
 "Rule","Cross-designated-line directed/rostered work receives one hour at base rate plus the return-kilometre reimbursement. Cost-neutral exchanges receive neither."
 "Agreement distances","Transit Officers Enterprise Agreement 2022, Schedule 2; preserved exactly."
 "Payroll-confirmed provisional distance","Burswood (Armadale home line) to Ellenbrook station return route: 54.3 km. Supplied payroll confirms this route only; not an agreed Schedule 2 update or a reverse-route value."
+"Perth travel","October 2026 payroll confirms 10.7 km from the Armadale home line to Perth station."
 "CMR travel","15 October 2026 payroll confirms 10.7 km return from the Armadale home line to East Perth Station. Other East Perth routes are unverified."
 "Provisional distances","Network extensions absent from Schedule 2 use OSRM road routes and OpenStreetMap station coordinates. They require replacement if PTA/union supplies an agreed updated table."
 
@@ -78,7 +79,7 @@
 "Armadale","ARMADALE","Midland","MIDLAND","East Perth Station","EP","10.70","Payroll-confirmed provisional route; not Schedule 2","Yes — 1 hour at base rate","10.49","AD-CMR"
 "Armadale","ARMADALE","Midland","MIDLAND","Maylands","MA","12.80","Agreement Schedule 2","Yes — 1 hour at base rate","12.54","MA"
 "Armadale","ARMADALE","Midland","MIDLAND","Midland","MD","28.40","Agreement Schedule 2","Yes — 1 hour at base rate","27.83","40 40V 41 42 4A 4M MD"
-"Armadale","ARMADALE","Perth","PERTH","Perth","PC","11.00","Agreement Schedule 2","Yes — 1 hour at base rate","10.78","12A 30 31 3A 3M 3N AD-PER CBR EQA EQM MCI PA PD PDT PM PN PRD SA SM UD UN"
+"Armadale","ARMADALE","Perth","PERTH","Perth","PC","10.70","Payroll-confirmed provisional route; not Schedule 2","Yes — 1 hour at base rate","10.49","12A 30 31 3A 3M 3N AD-PER CBR EQA EQM MCI PA PD PDT PM PN PRD SA SM UD UN"
 "Armadale","ARMADALE","Perth","PERTH","Perth Stadium","PS","4.20","Agreement Schedule 2","Yes — 1 hour at base rate","4.12","PS"
 "Armadale","ARMADALE","Yanchep","JOONDALUP","Alkimos","AK","99.00","Provisional calculated route","Yes — 1 hour at base rate","97.02","52 AK"
 "Armadale","ARMADALE","Yanchep","JOONDALUP","Butler","BTR","94.20","Agreement Schedule 2","Yes — 1 hour at base rate","92.32","53 BT"
