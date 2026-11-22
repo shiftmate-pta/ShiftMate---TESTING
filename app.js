@@ -584,7 +584,7 @@
     const reason=entry.row.personalLeaveReason||'illness';
     return {leaveType,leaveEntries,start:first.date,end:last.date,hours,reason};
   }
-  const leaveLabel=type=>type==='annual'?'Annual Leave':type==='sick'?'Personal Leave':type==='lsl'?'Long Service Leave':type==='lwop'?'Leave Without Pay':'Other Leave';
+  const leaveLabel=type=>type==='annual'?'Annual Leave':type==='sick'?'Personal Leave':type==='lsl'?'Long Service Leave':type==='lwop'?'Leave Without Pay':type==='easter'?'Easter Sunday additional leave':'Other Leave';
   function leaveReasonForEntry(e){return e?.row?.personalLeaveReason||'illness'}
   function leaveHoursForEntry(e){
     return PayCalc.leaveHoursUsed(e.row,e.date,e.cycle?.settings||current.settings);
@@ -737,7 +737,7 @@
         ${(()=>{const v=rosterVariation(row,date);return v.extension>0?`<div><span>Shift extension OT</span><strong>${v.extension.toFixed(2)} hrs</strong></div>`:''})()}
         ${(()=>{const v=rosterVariation(row,date);return v.forced>0?`<div><span>Built-in forced OT</span><strong>${v.forced.toFixed(2)} hrs</strong></div>`:''})()}
         ${row.code&&row.type!=='Off'&&!data?.leaveType?`<label class="calendar-partner-field"><span>Partner</span><input class="calendar-partner-input" type="text" list="partnerSuggestions" value="${String(row.partner||'').replace(/&/g,'&amp;').replace(/\"/g,'&quot;')}" placeholder="Add partner"></label>`:''}
-        ${row.hd?`<div><span>Higher duties</span><strong>Yes</strong></div>`:''}
+        ${row.actingSupervisor||row.hd?`<div><span>Higher duties</span><strong>${row.actingSupervisor?'Acting Transit Supervisor':'Yes'}</strong></div>`:''}
         ${row.offline?`<div><span>Offline shift</span><strong>Yes</strong></div>`:''}
         ${hasBookOff?`<div><span>Book-off</span><strong>${Number(row.bookOffHours).toFixed(2)} hrs</strong></div>`:''}
       </div>
@@ -1070,7 +1070,7 @@
       <span class="setting-chip state"><i class="status-lamp ${deductions?'on':'off'}"></i><small>Deductions</small><b>${deductions?`${deductions} active`:'Off'}</b></span>
       <span class="setting-chip"><small>OT target</small><b>${target}</b></span>`;
   }
-  const leaveOrder=['A/L','Sick','LSL','LWOP'];
+  const leaveOrder=['A/L','Sick','LSL','LWOP','ADL'];
   const rosterLineOptions=(selected='')=>Object.entries(window.ROSTER_LINES||{}).map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
   const shiftDisplayLabels={EQA:'Elizabeth Quay Arvo',EQM:'Elizabeth Quay Morn'};
   const shiftOptionLabel=code=>{
@@ -1357,7 +1357,7 @@
     }
     if(force||!start.value||!finish.value){start.value=times[0];finish.value=times[1]}
     if(type.value==='Off') type.value='Rostered';
-    if(data.autoHigherDuties) hd.value='yes';
+    if(data.autoHigherDuties&&hd.value!=='supervisor') hd.value='yes';
     label.textContent=data.leaveType?`${data.name} • ${data.defaultHours||10} paid hours`:`${data.name} • ${data.location?data.location+' • ':''}${start.value}–${finish.value}`;
     const selectedData=SHIFT_DATA[card.querySelector('.shift-code')?.value];
     const leaveField=rosterControl(card,'.leave-hours-field');
@@ -1538,7 +1538,7 @@
             <option ${row.type==='Off'?'selected':''}>Off</option>
           </select></label>
           <label>Partner<input class="shift-partner" type="text" list="partnerSuggestions" value="${String(row.partner||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" placeholder="Optional"></label>
-          <label>Higher duties<select class="higher-duties"><option value="no" ${row.hd?'':'selected'}>No</option><option value="yes" ${row.hd?'selected':''}>Yes</option></select></label>
+          <label>Higher duties<select class="higher-duties"><option value="no" ${row.hd||row.actingSupervisor?'':'selected'}>No</option><option value="yes" ${row.hd&&!row.actingSupervisor?'selected':''}>Yes</option><option value="supervisor" ${row.actingSupervisor?'selected':''}>Acting Transit Supervisor</option></select></label>
           <label>Start<input class="start-time" type="time" value="${row.start||''}"></label>
           <label hidden>Posted start<input class="posted-start" type="time"></label>
           <label hidden>Posted finish<input class="posted-finish" type="time"></label>
@@ -1808,6 +1808,7 @@
       code:effectiveShiftCode(card),
       type:rosterControl(card,'.shift-type')?.value||'Off',
       hd:rosterControl(card,'.higher-duties')?.value==='yes',
+      actingSupervisor:rosterControl(card,'.higher-duties')?.value==='supervisor',
       start:rosterControl(card,'.start-time')?.value||'',
       finish:rosterControl(card,'.finish-time')?.value||'',
       earlyStartHours:0,
@@ -1906,6 +1907,41 @@
     });
   }
 
+  function renderPayslipComparison(result,cycleStart){
+    const panel=$('#payslipComparison'),select=$('#payslipEntitlement');
+    const paid=$('#payslipAmount'),message=$('#payslipDiscrepancy');
+    const items=[...result.allowanceDetails,...result.reimbursementDetails];
+    panel.hidden=items.length===0;
+    const signature=JSON.stringify([cycleStart,items.map(({date,code,type,amount})=>[date,code,type,amount])]);
+    if(panel.dataset.comparison===signature)return;
+    panel.dataset.comparison=signature;
+    select.replaceChildren(new Option('Select a payment',''));
+    items.forEach((item,index)=>select.add(new Option(item.date+' · '+item.code+' · '+item.type,String(index))));
+    paid.value='';message.textContent='';
+    const clauses={
+      'Morning allowance':'5.1.1(c) and 5.1.2(a)',
+      'Afternoon allowance':'5.1.1(a) and 5.1.2(a)',
+      'Night allowance':'5.1.1(b) and 5.1.2(b)',
+      'Early/late shift allowance':'5.1.3',
+      'Supplementary training penalty':'4.3',
+      'Training travel allowance':'5.2.5',
+      'Training kilometre reimbursement':'5.2.5',
+      'Other line allowance':'5.2.2',
+      'Kilometre reimbursement':'5.2.2',
+    };
+    const compare=()=>{
+      message.textContent='';
+      if(select.value===''||paid.value===''||!paid.validity.valid)return;
+      const item=items[Number(select.value)],actual=paid.valueAsNumber;
+      if(!item||!Number.isFinite(actual)||Math.round(actual*100)>=Math.round(item.amount*100))return;
+      const clause=clauses[item.type];
+      message.textContent='Possible payroll discrepancy — '+item.date+' '+item.code+' '+item.type+'. Expected '+money(item.amount)+
+        '; payslip '+money(actual)+(clause?'. Agreement clause '+clause:'')+'.';
+    };
+    select.onchange=()=>{paid.value='';compare()};
+    paid.oninput=compare;
+  }
+
   function renderLeaveAudit(result){
     const panel=$('#leaveCalculationAudit');if(!panel)return;
     panel.innerHTML=(result.annualLeaveDetails||[]).map(item=>`<div>${esc(item.date)}: ${item.hours} hrs × ${money(item.baseRate)} base + ${item.hours} hrs × $${Number(item.loadingRate).toFixed(6)} loading = ${money(item.amount)}${item.capped?' (cap applied)':''}</div>`).join('')+`<div>Pre-tax packaging: ${money(result.deductions?.salaryPackaging)}; pre-tax super: ${money(result.deductions?.superPreTax)}; post-tax deductions: ${money(result.deductions?.postTax)}</div>`+(result.calculationWarnings||[]).map(message=>`<p>${esc(message)}</p>`).join('');
@@ -1922,6 +1958,7 @@
     resolveAgreementSettings();
     latestResult=PayCalc.calculate(current);
     renderLeaveAudit(latestResult);
+    renderPayslipComparison(latestResult,current.startDate);
     latestResult.dayTotals.forEach((row,i)=>{
       const card=$$('.day-card')[i];
       if(!card) return;
@@ -1942,7 +1979,7 @@
           : `${d.name} • ${row.start}–${row.finish}${earlyText}${addText}${forcedText}`;
       }
     });
-    $('#workedPay').textContent=money(latestResult.breakdown.workedPay);$('#publicHolidayPay').textContent=money(latestResult.breakdown.publicHolidayPay);renderPublicHolidayBreakdown(latestResult.publicHolidayDetails);$('#annualLeavePay').textContent=money(latestResult.breakdown.annualLeavePay);$('#sickLeavePay').textContent=money(latestResult.breakdown.sickLeavePay);$('#lslPay').textContent=money(latestResult.breakdown.lslPay);$('#lwopPay').textContent=money(latestResult.breakdown.lwopPay);$('#extrasPay').textContent=money(latestResult.breakdown.extrasPay);renderAllowanceBreakdown(latestResult.allowanceDetails);$('#reimbursementsPay').textContent=money(latestResult.reimbursements);renderReimbursementBreakdown(latestResult.reimbursementDetails);$('#additionalHoursPay').textContent=money(latestResult.breakdown.additionalHoursPay);$('#gross').textContent=money(latestResult.gross);
+    $('#workedPay').textContent=money(latestResult.breakdown.workedPay);$('#publicHolidayPay').textContent=money(latestResult.breakdown.publicHolidayPay);renderPublicHolidayBreakdown(latestResult.publicHolidayDetails);$('#annualLeavePay').textContent=money(latestResult.breakdown.annualLeavePay);$('#sickLeavePay').textContent=money(latestResult.breakdown.sickLeavePay);$('#lslPay').textContent=money(latestResult.breakdown.lslPay);$('#easterLeavePay').textContent=money(latestResult.breakdown.easterLeavePay);$('#lwopPay').textContent=money(latestResult.breakdown.lwopPay);$('#extrasPay').textContent=money(latestResult.breakdown.extrasPay);renderAllowanceBreakdown(latestResult.allowanceDetails);$('#reimbursementsPay').textContent=money(latestResult.reimbursements);renderReimbursementBreakdown(latestResult.reimbursementDetails);$('#additionalHoursPay').textContent=money(latestResult.breakdown.additionalHoursPay);$('#gross').textContent=money(latestResult.gross);
     $('#taxable').textContent=money(latestResult.taxable);
     $('#tax').textContent=money(latestResult.tax);
     $('#hours').textContent=latestResult.hours.toFixed(1);
@@ -2660,8 +2697,9 @@
     $('#payStatusLabel').textContent=statusLabel(status);$('#payRange').innerHTML=`${peLabel(cycle.startDate)}<small class="cycle-range-sub">${cycleDateRange(cycle.startDate)}</small>`;
     $('#payPayday').textContent=`Payday ${paydayFor(cycle.startDate).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}`;
     $('#workedPay').textContent=money(result.breakdown.workedPay);$('#publicHolidayPay').textContent=money(result.breakdown.publicHolidayPay);
-    renderLeaveAudit(result);renderPublicHolidayBreakdown(result.publicHolidayDetails);$('#annualLeavePay').textContent=money(result.breakdown.annualLeavePay);
+    renderLeaveAudit(result);renderPayslipComparison(result,cycle.startDate);renderPublicHolidayBreakdown(result.publicHolidayDetails);$('#annualLeavePay').textContent=money(result.breakdown.annualLeavePay);
     $('#sickLeavePay').textContent=money(result.breakdown.sickLeavePay);$('#lslPay').textContent=money(result.breakdown.lslPay);
+    $('#easterLeavePay').textContent=money(result.breakdown.easterLeavePay);
     $('#lwopPay').textContent=money(result.breakdown.lwopPay);$('#extrasPay').textContent=money(result.breakdown.extrasPay);
     renderAllowanceBreakdown(result.allowanceDetails,cycle.startDate);$('#reimbursementsPay').textContent=money(result.reimbursements);renderReimbursementBreakdown(result.reimbursementDetails,cycle.startDate);$('#additionalHoursPay').textContent=money(result.breakdown.additionalHoursPay);
     $('#gross').textContent=money(result.gross);$('#taxable').textContent=money(result.taxable);$('#tax').textContent=money(result.tax);

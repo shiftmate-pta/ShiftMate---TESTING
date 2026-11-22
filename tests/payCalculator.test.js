@@ -55,4 +55,30 @@ if(otherStation.reimbursementDetails.length)assert.notEqual(otherStation.reimbur
 const oldRate=PayCalc.calculate({startDate:'2026-06-01',days:[day('30','Picked-up OT','14:45','00:45',true,'PERTH')],settings:{...settings,lease:0,postTax:0}});
 close(oldRate.reimbursements,10.7*.895,'pre-July-2026 reimbursement keeps the prior rate');
 
+// Clause 6.1.7(a) excludes the non-working holiday payment when an overnight shift overlaps it.
+const holidayCarryover=PayCalc.calculate({startDate:'2026-09-27',days:[day('30','Picked-up OT','20:00','02:00'),off()],settings:{...settings,homeLine:'PERTH'}});
+assert.equal(holidayCarryover.publicHolidayDetails.length,1);
+assert.equal(holidayCarryover.publicHolidayDetails[0].hours,2);
+assert.equal(holidayCarryover.publicHolidayDetails[0].leaveCredit,8);
+assert.equal(holidayCarryover.hours,6);
+close(holidayCarryover.breakdown.publicHolidayPay,2*1.5*44.37,'holiday hours worked only');
+
+const acting={...day('AA1','Picked-up OT','15:30','01:30'),actingSupervisor:true};
+const supervisorOn=(date,row=acting,extra={})=>PayCalc.calculate({startDate:date,days:[row],settings:{...settings,...extra}});
+close(supervisorOn('2026-10-12').breakdown.additionalHoursPay,941.47,'provisional weekday acting supervisor overtime');
+close(supervisorOn('2026-10-12',{...acting,finish:'17:30'}).breakdown.additionalHoursPay,152.67,'first three hours tier');
+for(const [date,row,extra] of [
+  ['2026-10-09',acting,{}],
+  ['2026-10-16',acting,{}],
+  ['2026-10-17',acting,{}],
+  ['2026-10-12',acting,{customPublicHolidays:'2026-10-13'}],
+  ['2026-10-12',{...acting,finish:'02:30'},{}],
+  ['2026-10-12',{...acting,type:'Rostered'},{}],
+]){
+  const estimate=supervisorOn(date,row,extra);
+  close(estimate.gross,supervisorOn(date,{...row,actingSupervisor:false},extra).gross,'unsupported acting pattern uses existing rules');
+  assert.match(estimate.calculationWarnings.join(' '),/outside the verified/);
+}
+close(supervisorOn('2026-10-12',{...acting,actingSupervisor:false,hd:true}).gross,906.016,'standard higher duties retained');
+
 console.log('payCalculator regression tests passed');

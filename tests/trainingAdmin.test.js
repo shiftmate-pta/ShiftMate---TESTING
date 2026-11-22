@@ -13,7 +13,7 @@ const calculate=(row,overrides={},date='2026-10-08')=>
   PayCalc.calculate({days:[row],startDate:date,settings:{...settings,...overrides}});
 const close=(actual,expected,tolerance=.005)=>assert.ok(Math.abs(actual-expected)<=tolerance,`${actual} != ${expected}`);
 const allowance=(result,type)=>result.allowanceDetails.find(item=>item.type===type);
-for(const [code,distance] of [['SAFEK',76.4],['BH',22.6]]){
+for(const [code,distance] of [['SAFEK',80.8],['BH',22.6]]){
   const result=calculate({code},{},'2026-10-28');
   close(result.hours,10);
   close(result.breakdown.workedPay,443.70);
@@ -45,11 +45,22 @@ assert.equal(october.allowanceDetails.length,3);
 assert.equal(october.reimbursementDetails.length,1);
 assert.equal(bookOff.verifiedTrainingKm,80.8);
 
+assert.equal(calculate({code:'SAFEK'},{homeLine:'FREMANTLE'}).reimbursementDetails[0].distance,76);
+assert.equal(calculate({code:'SAFEK',verifiedTrainingKm:79}).reimbursementDetails[0].distance,79);
+
 const missing=calculate({code:'BH'},{homeLine:'MIDLAND'});
 assert.equal(missing.reimbursements,0);
 assert.match(missing.calculationWarnings.join(' '),/Training mileage distance is unavailable/);
 assert.equal(calculate({code:'SAFEK'},{classification:'TRAINEE'}).allowanceDetails.length,0);
 assert.equal(calculate({code:'SAFEK'},{},'2026-10-09').hours,10);
+
+// Clause 5.1.3 also applies to qualifying supplementary training shifts.
+for(const code of ['BH','SAFEK']){
+  const overnight={code,scheduledStart:'16:00',scheduledFinish:'02:00',start:'16:00',finish:'02:00'};
+  const eligible=calculate(overnight,{},'2026-10-07');
+  close(allowance(eligible,'Early/late shift allowance').amount,5.77);
+  assert.equal(allowance(calculate(overnight,{},'2026-10-09'),'Early/late shift allowance'),undefined);
+}
 
 const admin=calculate({code:'AD-ARM'});
 close(admin.hours,8);

@@ -127,6 +127,7 @@
 <div><span>Worked shifts</span><strong id="workedPay">$0.00</strong></div>
 <div><span>Annual leave</span><strong id="annualLeavePay">$0.00</strong></div>
 <div><span>Sick / personal leave</span><strong id="sickLeavePay">$0.00</strong></div>
+<div><span>Easter Sunday additional leave</span><strong id="easterLeavePay">$0.00</strong></div>
 <div><span>Long service leave</span><strong id="lslPay">$0.00</strong></div>
 <div><span>Leave without pay</span><strong id="lwopPay">$0.00</strong></div>
 <details class="allowance-breakdown public-holiday-breakdown">
@@ -147,6 +148,15 @@
 <strong id="reimbursementsPay">$0.00</strong>
 </summary>
 <div class="allowance-breakdown-list" id="reimbursementBreakdownList"></div>
+</details>
+<details class="allowance-breakdown" id="payslipComparison" hidden>
+<summary>Compare an allowance with your payslip</summary>
+<div class="allowance-breakdown-list">
+<label>Expected payment<select id="payslipEntitlement"></select></label>
+<label>Amount paid<input id="payslipAmount" type="number" min="0" step="0.01" inputmode="decimal" aria-describedby="payslipAmountHint"/></label>
+<small id="payslipAmountHint">Check the dated payslip lines first. Enter 0 if the payment is absent.</small>
+<p id="payslipDiscrepancy" role="status"></p>
+</div>
 </details>
 <div><span>Additional hours</span><strong id="additionalHoursPay">$0.00</strong></div>
 <div><span>Taxable pay</span><strong id="taxable">$0.00</strong></div>
@@ -322,7 +332,7 @@
 </details>
 <details class="settings-section">
 <summary><span>About</span><small>ShiftMate app information</small></summary>
-<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.8.7 PAYROLL TEST</div>
+<div class="settings-note settings-wide"><strong>ShiftMate TEST</strong><br/>Version 2.8.8 COMPLIANCE TEST</div>
 </details>
 <div class="action-grid settings-actions">
 <button class="primary" id="saveCurrent">Save settings</button>
@@ -431,9 +441,9 @@
 <button class="nav-button" data-go="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
 </nav>
 <script src="agreementData.js?v=8.3"></script>
-<script src="shiftData.js?v=2.8.6-payroll"></script>
+<script src="shiftData.js?v=2.8.8-compliance"></script>
 <script src="annualLeaveLoading.js?v=2.8.0-partner"></script>
-<script src="payCalculator.js?v=2.8.7-payroll"></script>
+<script src="payCalculator.js?v=2.8.8-compliance"></script>
 <script src="storage.js?v=2.8.4-admin-codes"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
 <script src="formPdfFields.js?v=2"></script>
@@ -457,6 +467,6 @@
 <script src="pdfViewer.js?v=2"></script>
 <script src="partnerRoster.js?v=2.8.0-partner"></script>
 <script src="partnerRosterUI.js?v=2.8.0-partner"></script>
-<script src="app.js?v=2.8.7-payroll"></script>
+<script src="app.js?v=2.8.8-compliance"></script>
 </body>
 </html>
