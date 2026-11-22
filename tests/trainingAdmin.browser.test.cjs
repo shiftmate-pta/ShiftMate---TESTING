@@ -15,16 +15,30 @@ let server,browser;
   browser=await chromium.launch({channel:process.env.UI_BROWSER_CHANNEL||'chrome',headless:true});
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(String(error)));
-  const fixture={startDate:'2026-10-08',days:[],settings:{classification:'STO3',homeLine:'ARMADALE'}};
+  const fixture={startDate:'2026-10-08',days:[{},{
+    code:'PER-ADMIN',offlineShiftCode:'PER-ADMIN',workedRosterLine:'PERTH',
+    type:'Rostered',start:'09:00',finish:'16:00',entered:true
+  }],settings:{classification:'STO3',homeLine:'ARMADALE'}};
   const historical={id:'cycle-2026-09-20',startDate:'2026-09-20',settings:fixture.settings,days:[{code:'A/L',leaveHours:10}]};
-  await context.addInitScript(({fixture,historical})=>{
+  const legacy={id:'cycle-2026-10-01',startDate:'2026-10-01',settings:fixture.settings,
+    days:[{code:'ARM-ADMIN',workedRosterLine:'ARMADALE',start:'09:00',finish:'17:00'}]};
+  await context.addInitScript(({fixture,historical,legacy})=>{
     if(!localStorage.getItem('ptaV2Current'))localStorage.setItem('ptaV2Current',JSON.stringify(fixture));
-    if(!localStorage.getItem('ptaV2Cycles'))localStorage.setItem('ptaV2Cycles',JSON.stringify([historical]));
-  },{fixture,historical});
+    if(!localStorage.getItem('ptaV2Cycles'))localStorage.setItem('ptaV2Cycles',JSON.stringify([historical,legacy]));
+  },{fixture,historical,legacy});
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.locator('.nav-button[data-go="roster"]').click();
   const day=page.locator('.day-card').first();
   const selector=day.locator('.shift-code');
+  const offLine=page.locator('.day-card').nth(1);
+  assert.equal(await offLine.locator('.offline-shift-code').inputValue(),'AD-PER');
+  assert.equal(await offLine.locator('.worked-line').inputValue(),'PERTH');
+  assert.deepEqual(await page.evaluate(()=>{
+    const cycle=window.AppStorage.loadCycles().find(c=>c.id==='cycle-2026-10-01');
+    return cycle.days[0];
+  }),{...legacy.days[0],code:'AD-ARM'});
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('ptaV2Cycles'))[1].days[0].code),'ARM-ADMIN');
+  assert.equal(await selector.locator('option[value="ARM-ADMIN"]').count(),0);
   await selector.selectOption('SAFEK');
   await page.waitForFunction(()=>document.querySelector('.day-card .finish-time').value==='19:00');
   await day.locator('.details-button').click();
@@ -50,7 +64,7 @@ let server,browser;
   await page.locator('.nav-button[data-go="roster"]').click();
   assert.equal(await selector.inputValue(),'SAFEK');
   assert.equal((await read()).verifiedTrainingKm,80.8);
-  await selector.selectOption('ARM-ADMIN');
+  await selector.selectOption('AD-ARM');
   await page.waitForFunction(()=>document.querySelector('.day-card .finish-time').value==='17:00');
   await day.locator('.details-button').click();
   await page.locator('.posted-finish:visible').fill('16:00');

@@ -46,25 +46,25 @@ assert.match(missing.calculationWarnings.join(' '),/Training mileage distance is
 assert.equal(calculate({code:'SAFEK'},{classification:'TRAINEE'}).allowanceDetails.length,0);
 assert.equal(calculate({code:'SAFEK'},{},'2026-10-09').hours,10);
 
-const admin=calculate({code:'ARM-ADMIN'});
+const admin=calculate({code:'AD-ARM'});
 close(admin.hours,8);
 close(admin.breakdown.workedPay,354.96);
 assert.equal(admin.allowanceDetails.length,0);
-const away=calculate({code:'PER-ADMIN',workedRosterLine:'ARMADALE'});
+const away=calculate({code:'AD-PER',workedRosterLine:'ARMADALE'});
 close(allowance(away,'Other line allowance').amount,44.37);
 assert.equal(away.reimbursementDetails[0].distance,11);
-assert.equal(calculate({code:'PER-ADMIN',offlineReason:'cost-neutral'}).reimbursements,0);
-const adminOt=calculate({code:'ARM-ADMIN',start:'08:00',finish:'18:00'});
+assert.equal(calculate({code:'AD-PER',offlineReason:'cost-neutral'}).reimbursements,0);
+const adminOt=calculate({code:'AD-ARM',start:'08:00',finish:'18:00'});
 close(adminOt.breakdown.additionalHoursPay,2*44.37*1.84);
 for(const leaveType of ['annual','sick']){
-  const partial=calculate({code:'ARM-ADMIN',start:'08:00',finish:'14:00',scheduledStart:'08:00',
+  const partial=calculate({code:'AD-ARM',start:'08:00',finish:'14:00',scheduledStart:'08:00',
     scheduledFinish:'16:00',bookOffLeaveType:leaveType,bookOffHours:2});
   close(partial.hours,8);
   close(partial.breakdown.workedPay,6*44.37);
   close(partial.leaveUsage[leaveType==='annual'?'annual':'personal'],2);
   assert.equal(partial.allowanceDetails.length,0);
 }
-const afternoon=calculate({code:'ARM-ADMIN',start:'11:00',finish:'19:00',scheduledStart:'11:00',scheduledFinish:'19:00'});
+const afternoon=calculate({code:'AD-ARM',start:'11:00',finish:'19:00',scheduledStart:'11:00',scheduledFinish:'19:00'});
 assert.ok(allowance(afternoon,'Afternoon allowance'));
 assert.equal(allowance(afternoon,'Supplementary training penalty'),undefined);
 console.log('Training and administration pay checks passed');

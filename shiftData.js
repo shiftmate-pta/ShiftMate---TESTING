@@ -55,7 +55,7 @@ window.SHIFT_DATA = {"10":{"name":"Daglish","line":"FREMANTLE","designatedLine":
       JOONDALUP:34.8,FREMANTLE:35.2,ARMADALE:22.6,SOUTHERN_MANDURAH:87.8,
       PERTH:26.8,NORTHERN_MANDURAH:47,AIRPORT:12.7
     }},
-    'ARM-ADMIN':{name:'Armadale administration',line:'ARMADALE',stationCode:'AR',admin:true,times:adminTimes},
-    'PER-ADMIN':{name:'Perth administration',line:'PERTH',stationCode:'PC',admin:true,times:adminTimes}
+    'AD-ARM':{name:'Armadale administration',line:'ARMADALE',stationCode:'AR',admin:true,times:adminTimes},
+    'AD-PER':{name:'Perth administration',line:'PERTH',stationCode:'PC',admin:true,times:adminTimes}
   });
 })();
