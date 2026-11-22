@@ -1900,7 +1900,7 @@
     details.forEach(item=>{
       const date=parseDate(item.date),row=document.createElement('button');
       row.type='button';row.className='allowance-audit-row';row.dataset.dayIndex=String(item.dayIndex);
-      row.innerHTML=`<span><b>${date.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</b><small>${item.code||'Shift'} • ${Number(item.distance||0).toFixed(2)} km @ ${money(item.rate)}/km • ${esc(item.distanceMeta?.status||'Distance source unverified')} • Withholding unverified</small></span><strong>${money(item.amount)}</strong>`;
+      row.innerHTML=`<span><b>${date.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</b><small>${item.code||'Shift'} • ${Number(item.distance||0).toFixed(2)} km @ ${money(item.rate)}/km • ${esc(item.distanceMeta?.status||'Distance source unverified')}</small></span><strong>${money(item.amount)}</strong>`;
       if(cycleStart===current.startDate)row.onclick=()=>openRosterDay(item.dayIndex);else row.classList.add('read-only-audit');
       list.appendChild(row);
     });

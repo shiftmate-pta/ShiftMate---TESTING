@@ -374,7 +374,7 @@ window.PayCalc = (() => {
               const mileage=distance*rate;
               reimbursements+=mileage;
               breakdown.reimbursements+=mileage;
-              reimbursementDetails.push({type:'Kilometre reimbursement',date:iso(date),dayIndex:i,code:row.code,amount:mileage,distance,rate,distanceMeta:distanceMeta(settings.homeLine,workedRoster,data.stationCode),withholdingStatus:'Unverified: existing exclusion from withholding retained',workedRosterLine:workedRoster});
+              reimbursementDetails.push({type:'Kilometre reimbursement',date:iso(date),dayIndex:i,code:row.code,amount:mileage,distance,rate,distanceMeta:distanceMeta(settings.homeLine,workedRoster,data.stationCode),workedRosterLine:workedRoster});
             }
           }
         }
@@ -405,9 +405,8 @@ window.PayCalc = (() => {
     });
 
     rows.forEach((info,i)=>{const dayGross=info.prePhGross||0;gross+=dayGross;hours+=info.dayHours||0;dayTotals.push({gross:dayGross,hours:info.dayHours||0,start:info.st||'',finish:info.fn||'',additionalPay:info.additionalPay||0,holidayName:holidays.get(iso(info.date))||''})});
-    const taxable=Math.max(0,gross-settings.lease-settings.gesb),tax=taxable?Math.max(0,Math.round(annualTax(taxable*26)/26+settings.extraTax)):0,net=taxable-tax-settings.postTax+reimbursements;
+    const taxable=Math.max(0,gross+reimbursements-settings.lease-settings.gesb),tax=taxable?Math.max(0,Math.round(annualTax(taxable*26)/26+settings.extraTax)):0,net=taxable-tax-settings.postTax;
     const deductions={salaryPackaging:Number(settings.lease)||0,superPreTax:Number(settings.gesb)||0,postTax:Number(settings.postTax)||0};
-    if(reimbursements)calculationWarnings.add('Mileage withholding is unverified; the existing exclusion is retained.');
     return {annualLeaveDetails,leaveUsage,calculationWarnings:[...calculationWarnings],deductions,gross,taxable,tax,hours,net,reimbursements,netHourly:hours?net/hours:0,dayTotals,breakdown,allowanceDetails,reimbursementDetails,publicHolidayDetails};
   };
   return {calculate,dayGroup,waPublicHolidays,publicHolidayHours,leaveHoursUsed};
